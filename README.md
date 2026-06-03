@@ -23,7 +23,7 @@
 ## 📁 仓库目录结构
 
 ```plain
-team-go-openspec-standard/
+schemas/
 ├── team-kitex-standard/        # Kitex RPC 微服务专属全局规范
 │   ├── config.yaml             # 框架匹配、分层、编码强制校验规则
 │   ├── AGENTS.md               # AI 代码生成最高优先级指令
@@ -106,6 +106,10 @@ team-go-openspec-standard/
 ```bash
 ~/.local/share/openspec/schemas/
 ```
+```cmd
+%USERPROFILE%\.openspec\schemas\
+```
+
 
 执行校验命令，确认规范生效：
 
