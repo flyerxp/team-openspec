@@ -40,8 +40,8 @@
 - 禁止业务逻辑、禁止判断、禁止流程编排
 
 # 3. 目录结构强制固定
-biz/dal/{db_name}/gorml
-biz/dal/{db_name}/gorml/where
+biz/dal/gorml/{db_name}
+biz/dal/gorml/{db_name}/where
 biz/dal/{db_name}/redis
 
 # 4. Golang 编码强制规范（MUST）

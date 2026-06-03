@@ -47,8 +47,8 @@
 
 # 3. Hertz 专属固定目录结构
 biz/controller       # Web控制器
-biz/dal/{db_name}/gorml
-biz/dal/{db_name}/gorml/where
+biz/dal/gorml/{db_name}
+biz/dal/gorml/{db_name}/where
 biz/dal/{db_name}/redis
 router/              # 路由注册专属目录
 
