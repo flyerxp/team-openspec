@@ -53,7 +53,7 @@ Handler → Service → Logic / DAL / Convert
 ├── /                    # 服务入口
 ├── router/              # 路由注册层（Web专属）
 ├── biz/                 # 业务核心层
-│   ├── candler/      # Web接口控制器层
+│   ├── handler/      # Web接口控制器层
 │   ├── service/         # 业务服务层
 │   ├── logic/           # 公共复用逻辑 & 通用工具
 │   ├── dal/             # 数据访问层
