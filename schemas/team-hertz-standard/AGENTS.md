@@ -38,10 +38,10 @@
 - 禁止业务逻辑、禁止判断、禁止流程编排
 - 统一团队转换规范
 # 3. Hertz 专属固定目录结构
-biz/controller       # Web控制器
+biz/handler       # Web控制器
 biz/dal/gormL/{db_name}
 biz/dal/gormL/{db_name}/where
-biz/dal/{db_name}/redis
+biz/dal/redis/{db_name}
 router/              # 路由注册专属目录
 # 4. Golang 编码强制规范（MUST，全团队统一）
 1. 结构体必须聚合初始化：var x T / x = T{}
@@ -162,6 +162,6 @@ func (r *NewsRepo) GetList(ctx context.Context, w *where.NewsListWhere, sort str
 - 禁止硬编码配置
 
 # 8. 双框架隔离规则
-- 本规则仅生效 Kitex RPC 项目
-- 不干预、不污染 Hertz Web 项目架构
+- 本规则仅生效 Hertz Web 项目
+- 不干预、不污染 Kitex RPC 项目架构
 - 基础编码、语言规范双向统一，架构分层完全隔离
