@@ -56,11 +56,13 @@
 
 ```plain
 Handler → Service
+Handler → Convert
+Handler → DAL
 Service → Logic
 Service → DAL
 Service → Convert
-Logic   → DAL（仅只读查询）
-Convert → Logic
+Logic   → DAL
+ Logic
 ```
 
 ## 五、分层职责规约
@@ -71,7 +73,7 @@ Convert → Logic
 
 ### 5\.2 Service 层
 
-RPC 业务核心实现层，负责业务流程编排、参数校验、事务控制、调用 DAL/Logic/Convert，允许直接操作数据库与缓存，一对一实现 IDL 接口能力。
+   业务核心实现层，负责业务流程编排、参数校验、事务控制、调用 DAL/Logic/Convert，允许直接操作数据库与缓存，一对一实现 IDL 接口能力。
 
 ### 5\.3 Logic 层
 
@@ -104,6 +106,10 @@ return &where.XxxListWhere{}
 ### 5\.5 Convert 层
 
 仅负责 DB 模型与 Protobuf 模型双向转换，只做字段映射与数据格式化，禁止嵌入任何业务判断与流程逻辑。
+
+### 5\.6 utils 工具类
+
+utils（工具层） 是项目通用、无业务属性、可跨项目复用的底层工具函数集合。不依赖任何业务模块、不依赖 service /dal/api 层，提供通用能力支撑。
 
 ## 六、编码强制规约
 

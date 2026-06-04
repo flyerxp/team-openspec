@@ -5,10 +5,10 @@
 
 ## 二、整体架构分层
 ### 分层固定顺序（Web专属）
-Controller → Service → Logic / DAL / Convert
+Handler → Service → Logic / DAL / Convert
 
 ### 各层职责
-1. Controller 控制器层
+1. Handler 控制器层
 - Web 路由接口入口
 - 负责参数绑定、基础校验、日志埋点、错误封装、响应返回
 - 无任何业务逻辑、数据查询、事务处理
@@ -22,9 +22,8 @@ Controller → Service → Logic / DAL / Convert
 3. Logic 通用逻辑层
 - 全局复用业务逻辑、工具、缓存管理、计算规则
 - 无状态、可单例
-- 不依赖 Service、Controller、Convert
-- 仅可只读查询 DAL
-- 与 Kitex RPC 项目 Logic 规范完全一致
+- 不依赖 Service、Handler
+- 可调用 DAL、Convert
 
 4. DAL 数据访问层
 1. 目录结构
@@ -46,12 +45,15 @@ Controller → Service → Logic / DAL / Convert
 - DB结构体 ↔ Web请求/响应结构体 双向转换
 - 仅字段映射、格式化，无业务逻辑
 
+6. utils 工具层
+   不依赖任何业务模块、不依赖 service /dal/api 层，提供通用能力支撑。
+
 ## 三、固定目录结构（Hertz专属）
 ```
 ├── /                    # 服务入口
 ├── router/              # 路由注册层（Web专属）
 ├── biz/                 # 业务核心层
-│   ├── controller/      # Web接口控制器层
+│   ├── candler/      # Web接口控制器层
 │   ├── service/         # 业务服务层
 │   ├── logic/           # 公共复用逻辑 & 通用工具
 │   ├── dal/             # 数据访问层
@@ -69,7 +71,7 @@ Controller → Service → Logic / DAL / Convert
 ```
 
 ## 四、合法依赖（强制）
-Controller → Service
+Handler → Service
 Service → Logic
 Service → DAL
 Service → Convert
@@ -77,8 +79,8 @@ Logic → DAL(只读)
 Convert → Logic
 
 ## 五、非法依赖（红线禁止）
-- Logic 禁止依赖 Service / Controller / Convert
-- Controller 禁止直接操作 DAL / Logic
+- Logic 禁止依赖 Service / Handler / Convert
+- Handler 禁止直接操作 DAL / Logic
 - Convert 禁止编写业务逻辑
 - 禁止跨层乱调用
 

@@ -31,15 +31,15 @@ rules:
   # Web分层依赖强制校验（Hertz专属，与RPC分层隔离）
   layer:
     allow_deps:
-      - Controller -> Service
+      - Handler -> Service
       - Service -> Logic
       - Service -> DAL
       - Service -> Convert
-      - Logic -> DAL(read only)
-      - Convert -> Logic
+      - Logic -> DAL
+      - Logic -> Convert
     forbid_deps:
-      - Logic 依赖 Service、Controller、Convert
-      - Controller 直接调用 DAL、Logic
+      - Logic 依赖 Service、Handler
+      - Handler 直接调用 DAL、Logic
       - Convert 存在业务逻辑
       - 跨层非法调用
 
@@ -70,7 +70,7 @@ rules:
 
   # 代码生成规范（Hertz专属）
   generate:
-    web_controller_template: true
+    web_candler_template: true
     repo_no_singleton: true
     where_chain_mode: true
     dal_db_split_dir: true

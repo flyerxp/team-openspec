@@ -159,12 +159,7 @@ func (r *NewsRepo) GetList(ctx context.Context, w *where.NewsListWhere, sort str
 
 # 7. 禁止行为红线
 - 禁止 Logic 依赖上层业务
-- 禁止 Controller 写业务逻辑
+- 禁止 Handler 写业务逻辑
 - 禁止 Convert 写逻辑
 - 禁止 DAL 单例常驻
 - 禁止硬编码配置
-
-# 8. 双框架隔离规则
-- 本规则仅生效 Kitex RPC 项目
-- 不干预、不污染 Hertz Web 项目架构
-- 基础编码、语言规范双向统一，架构分层完全隔离

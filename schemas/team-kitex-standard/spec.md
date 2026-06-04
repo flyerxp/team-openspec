@@ -7,31 +7,27 @@
 Handler → Service → Logic / DAL / Convert
 
 ### 各层职责
-1. Handler 入口层
-- 服务 RPC 入口
-- 只做参数透传、日志、错误包装
-- 无任何业务逻辑
 
-2. Service 业务服务层
+1. Service 业务服务层
 - 一对一实现 IDL RPC 方法
 - 业务流程编排、参数校验、数据组装
 - 允许直接调用 DAL 操作数据库、缓存
 - 允许调用 Logic 通用方法
 - 允许调用 Convert 做模型转换
 
-3. Logic 通用逻辑层
+2. Logic 通用逻辑层
 - 全局复用业务逻辑、工具、缓存管理、计算规则
 - 无状态、可单例
 - 不依赖 Service、Handler、Convert
 - 仅可只读查询 DAL
 
-4. DAL 数据访问层
+3. DAL 数据访问层
 - 全局多库隔离：按数据库名称分目录
 - 每个数据库独立 gormL、where、redis
 - Repo 无状态，用完即释放
 - where 提供仿 Ent 链式类型安全查询
 
-5. Convert 模型转换层
+4. Convert 模型转换层
 - DB结构体 ↔ Protobuf结构体 双向转换
 - 仅字段映射、格式化，无业务逻辑
 
@@ -43,9 +39,9 @@ Handler → Service → Logic / DAL / Convert
 │   ├── logic/           # 公共复用逻辑 & 通用工具
 │   ├── dal/             # 数据访问层
 │   │   ├── {db_name}/   # 按【数据库实例名】分目录（多库隔离）
-│   │   │   ├── gormL/   # 当前库 MySQL ORM 数据访问
-│   │   │   │   └── where/ # 类型安全链式查询构造器
-│   │   │   └── redis/   # 当前库 Redis 缓存访问
+│   │   │   └── gormL/   # 当前库 MySQL ORM 数据访问
+│   │   │      └── where/ # 类型安全链式查询构造器
+│   │── redis/           # 当前库 Redis 缓存访问
 │   ├── convert/         # 数据模型转换器
 │   └── test/            # Service 单元测试
 ├── conf/                # 配置层
@@ -66,9 +62,9 @@ Logic → DAL(只读)
 Convert → Logic
 
 ## 五、非法依赖（红线禁止）
-- Logic 禁止依赖 Service / Handler / Convert
+- Logic 禁止依赖 Service 
 - Handler 禁止直接操作 DAL / Logic
-- Convert 禁止编写业务逻辑
+- Convert 禁止编写业务逻辑,禁止调用 Logic 和 Service
 - 禁止跨层乱调用
 
 ## 六、统一编码规范

@@ -30,15 +30,13 @@ rules:
   # 分层依赖强制校验（红线）- 仅Kitex RPC架构
   layer:
     allow_deps:
-      - Handler -> Service
       - Service -> Logic
       - Service -> DAL
       - Service -> Convert
       - Logic -> DAL(read only)
-      - Convert -> Logic
+      - Logic -> Convert
     forbid_deps:
-      - Logic 依赖 Service、Handler、Convert
-      - Handler 直接调用 DAL、Logic
+      - Logic 依赖 Service
       - Convert 存在业务逻辑
       - 跨层非法调用
 

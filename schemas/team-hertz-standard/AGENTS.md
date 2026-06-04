@@ -8,10 +8,10 @@
 5. 与 Kitex 项目语言规范完全统一，保证团队风格一致
 # 2. 框架固定架构（MUST）
 技术栈：Golang + Hertz Web + GORM + Redis
-分层固定：Controller / Service / Logic / DAL / Convert
+分层固定：Handler / Service / Logic / DAL / Convert
 区别于Kitex RPC架构，严格遵循Web分层规范
 ## 分层职责严格约束
-### Controller（接口控制器层）
+### biz/handler（接口控制器层）
 - Web 请求唯一入口，对应路由接口
 - 只做：参数校验绑定、请求透传、日志埋点、错误包装、响应返回
 - 禁止：任何业务逻辑、数据查询、数据处理、事务操作
@@ -23,18 +23,16 @@
 ### Logic（通用逻辑层）
 - 存放多 Web 接口复用逻辑、缓存逻辑、通用工具、计算规则
 - 无状态、可全局单例
-- 禁止依赖 Service、Controller、Convert
-- 仅可只读读取 DAL 数据
-- 与 Kitex 项目 Logic 层规范完全一致
+- 禁止依赖 Service、Handler
+- 仅可只读读取 DAL 数据 和 Redis缓存
 ### DAL（数据访问层）
 - 严格按数据库名称分目录：biz/dal/{db_name}/
 - 每个库独立：gormL / gormL/where / redis
 - gormL：模型、Repo、CURD
 - where：仿 Ent 链式查询构造器、基类继承、私有方法封装
 - Repo 无状态，每次 new 新对象，不使用单例
-- 与 Kitex 项目 DAL 目录结构完全统一，保证数据层规范一致
 ### Convert（模型转换层）
-- 只做 DB结构体 ↔ Web入参/出参结构体 转换
+- 只做 DB结构体 ↔ 出参结构体 转换
 - 禁止业务逻辑、禁止判断、禁止流程编排
 - 统一团队转换规范
 # 3. Hertz 专属固定目录结构
@@ -156,12 +154,7 @@ func (r *NewsRepo) GetList(ctx context.Context, w *where.NewsListWhere, sort str
 
 # 7. 禁止行为红线
 - 禁止 Logic 依赖上层业务
-- 禁止 Controller 写业务逻辑
+- 禁止 Handler 写业务逻辑
 - 禁止 Convert 写逻辑
 - 禁止 DAL 单例常驻
 - 禁止硬编码配置
-
-# 8. 双框架隔离规则
-- 本规则仅生效 Hertz Web 项目
-- 不干预、不污染 Kitex RPC 项目架构
-- 基础编码、语言规范双向统一，架构分层完全隔离

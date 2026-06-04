@@ -8,7 +8,7 @@
 
 - **规范体系**：OpenSpec 团队全局统一规范
 
-- **架构模式**：五层分层架构（Handler / Service / Logic / DAL / Convert）
+- **架构模式**：五层分层架构（ Service / Logic / DAL / Convert）
 
 - **适用场景**：后端 RPC 微服务、内部服务通信、业务能力封装
 
@@ -36,9 +36,12 @@
 
 - `biz/service`：RPC 业务实现层，单接口单 Service 结构体
 
-- `biz/logic`：全局无状态通用复用逻辑、工具、缓存规则
+- `biz/logic`：全局无状态通用复用业务逻辑
 
-- `biz/dal`：数据访问层，严格按 `gormL/{db_name}/where` 分库管理
+- `biz/dal/gormL/{db_name}`：MysqlDB数据访问层，严格按 `gormL/{db_name}` 分库管理
+- `biz/dal/gormL/{db_name}/where`：数据库查询条件构建层，仿照生成ent框架的sqlWhere条件
+- `biz/dal/gormL/init.go`：数据库初始化，获取DB连接
+- `biz/dal/redis`：缓存层
 
 - `biz/convert`：模型双向转换层，仅做字段映射无业务逻辑
 
@@ -55,7 +58,6 @@
 所有代码依赖必须严格遵循白名单，CI/OpenSpec 校验强制拦截非法依赖：
 
 ```plain
-Handler → Service
 Service → Logic
 Service → DAL
 Service → Convert
@@ -65,21 +67,17 @@ Convert → Logic
 
 ## 五、分层职责规约
 
-### 5\.1 Handler 层
-
-仅做请求透传、日志埋点、参数接收、错误包装、响应返回，**禁止编写任何业务逻辑、数据查询、参数校验、事务处理**。
-
 ### 5\.2 Service 层
 
 RPC 业务核心实现层，负责业务流程编排、参数校验、事务控制、调用 DAL/Logic/Convert，允许直接操作数据库与缓存，一对一实现 IDL 接口能力。
 
 ### 5\.3 Logic 层
 
-无状态通用能力层，存放多服务复用逻辑、计算规则、缓存策略、通用工具，不依赖上层业务，仅可只读查询 DAL 数据。
+无状态通用能力层，存放多服务复用逻辑、计算规则、缓存策略、通用工具，不依赖上层业务，可读写查询 DAL 数据和redis缓存。
 
 ### 5\.4 DAL 层
 
-统一数据访问层，分库隔离 MySQL、Redis 数据源，通过 where 链式构造器实现类型安全查询，Repo 无状态、用完即释，禁止全局单例。
+统一数据访问层，分库隔离 MySQL、Redis 数据源，MySql通过 where 链式构造器实现类型安全查询，Repo 无状态、用完即释，禁止全局单例。
 
 ### 5\.5 Convert 层
 
