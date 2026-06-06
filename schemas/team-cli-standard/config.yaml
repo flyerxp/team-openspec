@@ -1,0 +1,66 @@
+# OpenSpec 项目配置文件
+
+# 项目基本信息
+project:
+  name: 定时+消息消费纯业务服务
+  version: 1.0.0
+  description: 无RPC的纯业务型服务，包含biz核心层、定时任务和消息消费模块，biz/dal对齐Kitex标准
+
+# 规范Schema配置
+schema:
+  # 引用团队标准Kitex schema
+  extends: team-kitex-standard
+  # 扩展规则，适配我们的无RPC项目
+  rules:
+    - name: no-rpc-layer
+      description: 项目无RPC层，禁用Handler/Service相关规则
+      level: error
+      check:
+        - 禁止创建handler、service目录
+        - 禁止RPC相关的代码生成
+    - name: biz-dal-alignment
+      description: biz/dal层必须完全对齐Kitex RPC标准
+      level: error
+      check:
+        - 禁止修改biz/dal的目录结构
+        - 必须遵循Kitex的dal编码规范
+
+# 工作流配置
+workflow:
+  auto_validate: true
+  require_review: true
+  archive_on_complete: true
+  templates:
+    feature: templates/feature-proposal.md
+    bugfix: templates/bugfix-proposal.md
+    refactor: templates/refactor-proposal.md
+
+# 工具集成配置
+tools:
+  cursor:
+    enabled: true
+  claude_code:
+    enabled: true
+  openspec_cli:
+    enabled: true
+    commands:
+      - validate
+      - apply
+      - archive
+
+# 全局上下文
+context:
+  language: zh-CN
+  tech_stack:
+    - Golang
+    - GORM
+    - MySQL
+    - Redis
+    - 定时任务
+    - MQ消息队列
+  architecture:
+    - 无RPC服务
+    - biz核心业务层
+    - crontab定时任务模块
+    - consumer消息消费模块
+  dal_standard: kitex-rpc-standard
