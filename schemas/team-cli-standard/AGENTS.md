@@ -205,7 +205,7 @@ type NewsRepo struct{}
 func GetNewNewsRepo() *NewsRepo {return &NewsRepo{}}
 // GetWhere 强制方法，获取对应Where对象
 func (n *NewsRepo) GetWhere() *where.NewsListWhere {
-	return &where.NewsListWhere{}
+	return &where.NewsListWhere{BaseWhere: &gormLib.BaseWhere{}}
 }
 
 // NewsInfoListColsPage 分页结构体
