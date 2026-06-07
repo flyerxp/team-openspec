@@ -202,7 +202,7 @@ func (NewsInfo) TableName() string {return "news_info"}
 // NewsRepo 数据仓储
 type NewsRepo struct{}
 // GetNewNewsRepo 新建实例
-func GetNewNewsRepo() *NewsRepo {return &NewsRepo{}}
+func NewNewsRepo() *NewsRepo {return &NewsRepo{}}
 // GetWhere 强制方法，获取对应Where对象
 func (n *NewsRepo) GetWhere() *where.NewsListWhere {
 	return &where.NewsListWhere{BaseWhere: &gormLib.BaseWhere{}}
