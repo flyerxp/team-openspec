@@ -235,24 +235,49 @@ type DemoInfo struct {
 	Title  string `gorm:"column:title;size:255"`
 	Status int    `gorm:"column:status"`
 }
+// ModuleInfo 模块示例表模型（适配Save事务示例）
+type ModuleInfo struct {
+	Id     int    `gorm:"column:id;primaryKey;autoIncrement"`
+	Path   string `gorm:"column:path;size:500"`
+	RootId int    `gorm:"column:root_id"`
+}
 // TableName 指定表名
 func (DemoInfo) TableName() string {
 	return "demo_info"
 }
+// TableName 指定表名
+func (ModuleInfo) TableName() string {
+	return "module_info"
+}
 // DemoRepo 数据仓储层
 type DemoRepo struct{}
+// ModuleRepo 模块数据仓储层
+type ModuleRepo struct{}
+
 // NewDemoRepo 构造方法：每次新建实例，禁止全局单例
 func NewDemoRepo() *DemoRepo {
 	return &DemoRepo{}
 }
+// NewModuleRepo 构造方法：每次新建实例，禁止全局单例
+func NewModuleRepo() *ModuleRepo {
+	return &ModuleRepo{}
+}
+
 // GetWhere 强制实现：Where对象唯一获取入口
 func (r *DemoRepo) GetWhere() *where.DemoListWhere {
 	return &where.DemoListWhere{BaseWhere: &gormLib.BaseWhere{}} 
 }
-// getDB 获取绑定上下文的DB实例
+
+// GetGormModel 获取绑定上下文的DB实例
 func (r *DemoRepo) GetGormModel(ctx context.Context) *gorm.DB {
 	return gormL.GetDB(ctx).Model(&DemoInfo{})
 }
+
+// GetGormModel 获取绑定上下文的DB实例
+func (r *ModuleRepo) GetGormModel(ctx context.Context) *gorm.DB {
+	return gormL.GetDB(ctx).Model(&ModuleInfo{})
+}
+
 // DemoListPage 统一分页结构体
 type DemoListPage struct {
 	List []DemoInfo
@@ -266,6 +291,7 @@ func (p *DemoListPage) DoPage() *DemoListPage {
 	}
 	return p
 }
+
 // ListPage 分页查询示例方法
 func (r *DemoRepo) ListPage(ctx context.Context, w *where.DemoListWhere, page, limit int) (*DemoListPage, error) {
 	var list []DemoInfo
@@ -290,13 +316,16 @@ func (r *DemoRepo) ListPage(ctx context.Context, w *where.DemoListWhere, page, l
 	pageObj.List = list
 	return pageObj.DoPage(), nil
 }
+
+// UpdatePathById 事务/非事务通用更新方法（链式Updates操作规范示例）
+// 适用场景：Updates、Where、Select等链式更新操作
 func (r *DemoRepo) UpdatePathById(ctx context.Context, id int, path string, rootId int, tx *gorm.DB) error {
 	db := tx
 	if db == nil {
-		// 无事务时，使用默认DB实例，内部已完成表模型绑定
+		// 无事务：使用预设表模型的标准DB实例
 		db = r.GetGormModel(ctx)
 	} else {
-		// 【强制规范】有事务时，必须对事务实例显式绑定当前表模型，避免表名/字段映射异常
+		// 【强制红线】事务链式操作必须手动绑定当前表模型
 		db = db.Model(&DemoInfo{})
 	}
 	return db.Where("id = ?", id).Updates(map[string]interface{}{
@@ -304,16 +333,30 @@ func (r *DemoRepo) UpdatePathById(ctx context.Context, id int, path string, root
 		"root_id": rootId,
 	}).Error
 }
+
+// UpdatePathById 事务/非事务通用保存方法（Save结构体保存规范示例）
+// 适用场景：完整模型结构体保存、更新，依托结构体自动识别表模型
+func (r *ModuleRepo) UpdatePathById(ctx context.Context, info *ModuleInfo, tx *gorm.DB) error {
+	// 事务场景：Save依托结构体自动识别表模型，无需手动Model绑定
+	if tx != nil {
+		return tx.Save(info).Error
+	}
+	// 非事务场景：统一使用标准绑定模型DB实例
+	return r.GetGormModel(ctx).Save(info).Error
+}
 ```
 
 **5\.2\.2 事务参数处理强制规范**
+
 当业务需要跨 Repo 执行事务操作，向 Repo 方法传递外部事务实例时，必须严格遵循以下规则：
 
-1. **强制绑定表模型**：外部传入的事务`*gorm.DB`实例默认未绑定当前 Repo 的表模型，必须在 Repo 方法内部，对该事务实例显式执行`Model(&当前表模型{})`，完成表模型绑定。
+1. **链式操作（Updates/Where 等）强制绑定表模型**：外部传入的事务`*gorm.DB`为通用实例，未绑定当前Repo表模型，执行 `Updates`、`Where`、`Select` 等链式操作时，**必须手动调用 Model\(\) 绑定当前业务表模型**，否则会出现表名识别错误、字段映射失效、软删除/钩子不生效等问题。
 
-2. **统一 DB 实例行为**：无论使用默认的`GetGormModel`获取的常规 DB 实例，还是外部传入的事务实例，最终执行 DB 操作的实例都必须已完成表模型绑定，确保两者行为完全一致。
+2. **结构体保存（Save）豁免绑定 Model**：使用 GORM `Save` 方法时，方法入参为完整模型结构体，GORM 可自动识别表模型，**无需手动调用 Model\(\) 绑定**，但必须严格做事务非空判断，统一事务、非事务分支代码逻辑，保持风格一致。
 
-3. **规避潜在风险**：该规范可有效避免因事务实例未指定表模型导致的表名错误、字段映射异常、GORM 钩子不生效、软删除逻辑失效等隐性问题。
+3. **事务分支必做判空兜底**：所有含事务参数的Repo方法，必须区分「有事务」「无事务」两个分支，无事务时统一使用 `GetGormModel` 获取已绑定表模型的标准DB实例，禁止直接裸用DB。
+
+4. **统一事务行为、杜绝隐性BUG**：所有事务操作严格区分两类写法适配规则，不混用、不省略绑定逻辑，保证所有数据库操作行为统一，规避事务场景下的数据更新异常、SQL 执行错误、事务回滚失效等隐性问题。
 
 ### 5\.3 全局分页规范
 
@@ -405,7 +448,8 @@ func GetShopDB(ctx context.Context) *gorm.DB {
 8\. 禁止手动修改 router、model 自动生成代码；
 9\. 禁止硬编码业务状态、时间、常量、ID 等数据；
 10\. 禁止跨层、反向非法依赖，严格遵守单向分层白名单；
-11\. 禁止 render 目录层级混乱，必须严格遵循「一级业务模块、二级子页面」两层结构。
+11\. 禁止 render 目录层级混乱，必须严格遵循「一级业务模块、二级子页面」两层结构；
+12\. 禁止事务链式操作（Updates/Where等）不绑定表模型，严禁混用事务规范写法。
 
 > （注：文档部分内容可能由 AI 生成）
 > 
