@@ -266,7 +266,7 @@ func NewDemoRepo() *DemoRepo {return &DemoRepo{}}
 func (n *DemoRepo) GetWhere() *where.DemoListWhere {
 	return &where.DemoListWhere{BaseWhere: &gormL.BaseWhere{}}
 }
-func (r *DemoRepo) getDB(ctx context.Context) *gorm.DB {
+func (r *DemoRepo) GetGormModel(ctx context.Context) *gorm.DB {
 	return gormL.GetDB(ctx).Model(&DemoInfo{})
 }
 
@@ -288,7 +288,7 @@ func (r *DemoRepo) GetList(ctx context.Context, w *where.DemoListWhere, sort str
 	var list []DemoListCols
 	pageObj := DemoInfoListColsPage{List: list, Page: widget.Page{Size: limit, Page: page}}
 	
-	db := r.getDB(ctx).Select("id", "title", "category_id")
+	db := r.GetGormModel(ctx).Select("id", "title", "category_id")
 	if w != nil {
 		db = w.Build(db)
 	}

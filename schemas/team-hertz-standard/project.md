@@ -311,7 +311,7 @@ func (r *DemoRepo) GetWhere() *where.DemoListWhere {
 }
 
 // getDB 获取绑定上下文的DB实例
-func (r *DemoRepo) getDB(ctx context.Context) *gorm.DB {
+func (r *DemoRepo) GetGormModel(ctx context.Context) *gorm.DB {
 	return gormL.GetDB(ctx).Model(&DemoInfo{})
 }
 
@@ -339,7 +339,7 @@ func (r *DemoRepo) ListPage(ctx context.Context, w *where.DemoListWhere, page, l
 	}
 
 	// 基础查询
-	db := r.getDB(ctx)
+	db := r.GetGormModel(ctx)
 	// 拼接where条件
 	if w != nil {
 		db = w.Build(db)
