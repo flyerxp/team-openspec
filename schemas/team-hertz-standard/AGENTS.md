@@ -1,160 +1,98 @@
-# OpenSpec 全局 AI 代理规则（团队 Hertz Web 服务专用）
-## 优先级：全局最高，仅 Hertz 项目强制生效，不影响 Kitex RPC 项目
-# 1. 语言强制规则（MUST）
-1. 所有文档、注释、需求、设计、方案必须纯中文
-2. 禁止拼音、禁止中英文混杂、禁止无意义英文缩写
-3. 技术关键字保留英文：ctx、db、req、resp、gorm、hertz
-4. 业务语义全部使用中文描述
-5. 与 Kitex 项目语言规范完全统一，保证团队风格一致
-# 2. 框架固定架构（MUST）
-技术栈：Golang + Hertz Web + GORM + Redis
-分层固定：Handler / Service / Logic / DAL / Convert
-区别于Kitex RPC架构，严格遵循Web分层规范
-## 分层职责严格约束
-### biz/handler（接口控制器层）
-- Web 请求唯一入口，对应路由接口
-- 只做：参数校验绑定、请求透传、日志埋点、错误包装、响应返回
-- 禁止：任何业务逻辑、数据查询、数据处理、事务操作
-### Service（业务实现层）
-- 一对一实现 Web 接口业务逻辑
-- 负责业务流程编排、参数二次校验、数据组装、事务控制
-- 允许直接操作 DB、Redis（通过 DAL Repo）
-- 允许调用 Logic 通用方法、Convert 模型转换
-### Logic（通用逻辑层）
-- 存放多 Web 接口复用逻辑、缓存逻辑、通用工具、计算规则
-- 无状态、可全局单例
-- 禁止依赖 Service、Handler
-- 仅可只读读取 DAL 数据 和 Redis缓存
-### DAL（数据访问层）
-- 严格按数据库名称分目录：biz/dal/{db_name}/
-- 每个库独立：gormL / gormL/where / redis
-- gormL：模型、Repo、CURD
-- where：仿 Ent 链式查询构造器、基类继承、私有方法封装
-- Repo 无状态，每次 new 新对象，不使用单例
-### Convert（模型转换层）
-- 只做 DB结构体 ↔ 出参结构体 转换
-- 禁止业务逻辑、禁止判断、禁止流程编排
-- 统一团队转换规范
-# 3. Hertz 专属固定目录结构
-biz/handler       # Web控制器
-biz/dal/gormL/{db_name}
-biz/dal/gormL/{db_name}/where
-biz/dal/redis/{db_name}
-router/              # 路由注册专属目录
-# 4. Golang 编码强制规范（MUST，全团队统一）
-1. 结构体必须聚合初始化：var x T / x = T{}
-2. 变量赋值优先 := 自动推导，禁止冗余类型声明
-3. 禁止变量遮蔽，内部作用域禁止与外部重名
-4. 无限循环统一 for{}，禁止 for 1
-5. JSON、含双引号字符串，必须使用反引号原生字符串
-6. main.go 禁止定义全局状态变量，所有状态封装结构体私有变量
-7. Lint 可静态化警告，行尾加 // NOLINT
-8. 所有注释使用 //，禁止其他注释方式
-# 5. 查询构造器固定规范
-- 基类 BaseWhere 统一存储条件、Build 构建
-- 子类只写一行 where 条件
-- 外部无法调用内部私有方法
-- 全程链式调用、类型安全、无裸 SQL
-- 与 Kitex 项目完全统一
+# AGENTS.md 团队协作规范
+## 优先级：全局最高，项目全员强制遵守
+本文档为项目团队协作通用规则，包含角色分工、需求流转、研发流程、文档管理、沟通规范与协作红线，适用于产品、开发、测试、运维全体成员。
 
-## 5.1 Where 文件命名规则
-1. where目录文件名：`表名.go`，和gormL目录下表定义文件同名一一对应；
-2. where内部结构体命名：`表名大驼峰+ListWhere`。
+一句话总结：AGENTS.md = 团队怎么干活、怎么配合
 
-### Where标准代码模板
-```go
-package where
+---
 
-import "github.com/flyerxp/lib/v2/middleware/gormL"
+## 1. 角色与职责划分
+### 1.1 产品人员
+1. 负责需求梳理、原型设计、需求文档输出；
+2. 组织需求评审、答疑，跟进需求落地与验收；
+3. 收集业务反馈，迭代优化功能与规则。
 
-type NewsListWhere struct {
-	*gormL.BaseWhere
-}
+### 1.2 开发人员
+1. 参与需求评审，理解业务逻辑与边界；
+2. 按照项目技术规范完成编码、自测；
+3. 配合测试修复问题，跟进上线与线上问题排查；
+4. 维护项目技术文档、注释与历史变更记录。
 
-func (w *NewsListWhere) TitleLike(title string) *NewsListWhere {
-	w.Where("title LIKE ?", title+"%")
-	return w
-}
-```
-## 5.2 gormL Repo 强制规范
-1. 每个Repo必须自带GetWhere()方法，统一获取对应Where实例；
-2. Repo禁止全局单例，通过构造方法新建实例。
+### 1.3 测试人员
+1. 依据需求文档编写测试用例，执行功能、回归测试；
+2. 提交缺陷并跟踪闭环，验证修复结果；
+3. 输出测试报告，评估版本发布质量。
 
-**标准Repo代码示例：**
-```go
-package ch123
+### 1.4 运维人员
+1. 负责项目环境部署、服务启停、权限配置、脚本维护；
+2. 监控线上服务状态、日志、告警，处理发布、回滚操作；
+3. 保障服务稳定性，配合排查线上故障。
 
-import (
-	"context"
-	"github.com/flyerxp/lib/v2/middleware/gormL"
-	"github.com/flyerxp/content.news.rpc/v2/biz/dal/gormL/ch123/where"
-	"github.com/flyerxp/globalStruct/widget"
-	"gorm.io/gorm"
-)
+---
 
-// NewsInfo 新闻资讯 GORM 模型
-type NewsInfo struct {
-	Id           int       `gorm:"column:id;primaryKey;autoIncrement" json:"id,omitempty"`
-	Title        string    `gorm:"column:title;size:255" json:"id,omitempty"`
-	CategoryId   int       `gorm:"column:category_id" json:"category_id,omitempty"`
-}
-func (NewsInfo) TableName() string {return "news_info"}
+## 2. 需求全流程规范
+### 2.1 需求提报
+1. 需求必须以正式文档+原型形式提交，明确业务背景、使用场景、输入输出、边界规则；
+2. 临时口头需求需事后补充书面文档，禁止无文档直接开发。
 
-// NewsRepo 数据仓储
-type NewsRepo struct{}
-// GetNewNewsRepo 新建实例
-func GetNewNewsRepo() *NewsRepo {return &NewsRepo{}}
-// GetWhere 强制方法，获取对应Where对象
-func (n *NewsRepo) GetWhere() *where.NewsListWhere {
-	return &where.NewsListWhere{}
-}
+### 2.2 需求评审
+1. 由产品发起评审会议，产品、开发、测试核心人员必须参与；
+2. 评审内容：业务逻辑、实现难度、兼容性、异常场景、排期；
+3. 评审问题统一记录，形成会议纪要并同步全员，无异议后方可进入开发阶段。
 
-// NewsInfoListColsPage 分页结构体
-type NewsInfoListColsPage struct {
-	List []NewsListCols
-	Page widget.Page
-}
-func (n *NewsInfoListColsPage) DoPage() *NewsInfoListColsPage {
-	n.Page.HasMore = len(n.List) > n.Page.Size
-	if n.Page.HasMore {
-		n.List = n.List[:n.Page.Size]
-	}
-	return n
-}
+### 2.3 需求验收
+1. 版本提测后，产品依据原始需求文档、原型进行功能验收；
+2. 验收不通过需明确问题点，退回开发修复；验收通过方可安排上线。
 
-// GetList 分页查询
-func (r *NewsRepo) GetList(ctx context.Context, w *where.NewsListWhere, sort string, page int, limit int) (*NewsInfoListColsPage, error) {
-	var list []NewsListCols
-	pageObj := NewsInfoListColsPage{List: list, Page: widget.Page{Size: limit,Page: page}}
-	db := gormL.GetDB(ctx).Model(&NewsInfo{}).Select("id","title","description","create_time","update_time","subtitle","time_line","img","category_id","status")
-	if w != nil {
-		db = w.Build(db)
-	}
-	switch sort {
-	case "web":
-		db = db.Order("is_top desc, sort_id desc, update_time desc")
-	case "time_line":
-		db = db.Order("is_top desc, sort_id desc, time_line desc")
-	default:
-		db = db.Order("id desc")
-	}
-	offset := (page - 1) * limit
-	db = db.Offset(offset).Limit(limit + 1)
-	if err := db.Find(&list).Error; err != nil {
-		return nil, err
-	}
-	pageObj.List = list
-	return pageObj.DoPage(), nil
-}
-```
-# 6. 分页规范
-- 统一分页结构体、自动判断 HasMore
-- 统一 limit+1 分页逻辑
-- 统一列表裁剪逻辑
+---
 
-# 7. 禁止行为红线
-- 禁止 Logic 依赖上层业务
-- 禁止 Handler 写业务逻辑
-- 禁止 Convert 写逻辑
-- 禁止 DAL 单例常驻
-- 禁止硬编码配置
+## 3. 代码分支与发布流程
+### 3.1 分支管理
+1. 统一使用主干分支 + 特性分支模式，禁止直接在主干分支编写业务代码；
+2. 新增功能从主干拉取独立特性分支，开发完成后提合并请求；
+3. 合并前必须完成代码自查、单元自测，由负责人做代码检视。
+
+### 3.2 上线流程
+1. 测试验收通过后，由运维统一执行部署上线；
+2. 上线前核对版本号、配置文件、脚本、依赖资源，做好前置检查；
+3. 上线完成后核查服务状态、日志、核心功能可用性。
+
+### 3.3 版本回滚
+1. 线上出现严重故障、功能异常时，立即执行版本回滚操作；
+2. 回滚后记录问题现象、影响范围、处理过程，事后复盘根因；
+3. 问题未修复完成前，禁止再次重复上线。
+
+---
+
+## 4. 文档管理规范
+1. 业务需求、原型、评审纪要、测试报告、运维手册统一存放至指定文档仓库；
+2. 技术设计文档、接口文档、变更记录随功能同步更新，保证内容与线上一致；
+3. 所有文档命名统一规则，分类归档，方便全员查阅。
+
+---
+
+## 5. 会议与沟通规范
+### 5.1 会议管理
+1. 例行站会、评审会、复盘会按时召开，参会人员准时到场；
+2. 会议明确议题与时长，聚焦问题解决，杜绝无效闲聊；
+3. 重要会议必须输出纪要，明确待办事项、负责人、截止时间。
+
+### 5.2 问题反馈
+1. 开发/测试/运维发现问题，按「问题现象+复现步骤+截图/日志」格式反馈；
+2. 线上紧急问题优先走紧急沟通渠道，同步相关负责人快速处置；
+3. 所有问题闭环后统一归档，便于后续追溯。
+
+---
+
+## 6. 协作红线（禁止行为）
+1. 禁止未经评审、无书面文档直接启动开发；
+2. 禁止私自合并代码、私自上线版本、私自修改线上配置；
+3. 禁止跨角色越权操作，运维不干预业务代码，开发不随意修改线上环境配置；
+4. 禁止隐瞒线上故障、缺陷问题，发现异常第一时间同步团队；
+5. 禁止文档长期不更新，导致文档与实际功能不一致。
+
+---
+
+## 7. 补充说明
+1. 本规范为团队协作基础要求，全体成员严格执行；
+2. 规则迭代、流程调整需全员同步确认后生效。

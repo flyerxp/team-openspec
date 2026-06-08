@@ -1,76 +1,117 @@
-schema: team-hertz-standard
-framework: Hertz-Go Web Service
-language: zh-CN
-strict: true
-description: 团队 Hertz Web 服务专属规范，仅对 Hertz 项目生效，不污染 Kitex RPC 项目
-# 关键：框架匹配阈值，仅识别 Hertz 项目
-match_rule:
-  framework_keywords:
-    - hz_gen
-    - hertz
-    - router
-    - handler
-  exclude_framework:
-    - kitex
-    - kitex_gen
+project:
+  name: "hertz-web-manage"
+  display_name: "Hertz Web后台管理服务"
+  service_type: ["web"]
+  tech_stack: ["Golang", "Hertz", "Protobuf", "GORM", "Redis", "Liquid"]
+  spec_version: "v1.0"
+  language: "zh-CN"
+  description: "基于Hertz+Protobuf开发的Web接口与Liquid页面渲染服务，对齐团队统一DAL分层规范"
+
+# ====================== 2. 全局编码规范 ======================
+code_rule:
+  comment_rule: "single_line"
+  string_backtick: true
+  infinite_for: true
+  struct_aggregate_init: true
+  auto_type_infer: true
+  forbid_var_shadow: true
+  forbid_global_biz_var: true
+ lint_nolint_allow: true
+
+# ====================== 3. 工程目录结构约束 ======================
+dir_struct:
+  root_keep:
     - idl
+    - layout
+    - conf
+    - golang
+    - render
+  biz_path: "golang/biz"
+  biz_sub_dir:
+    - handle
+    - model
+    - router
+    - mw
+    - logic
+    - convert
+    - dal
 
-# 全局继承公共能力
-extends: []
+# ====================== 4. 目录专属强约束 ======================
+dir_rule:
+  conf:
+    only_yaml: true
+    forbid_go_file: true
+  idl:
+    only_protobuf: true
+  golang/biz/router:
+    manual_edit_forbid: true
+  golang/biz/model:
+    manual_edit_forbid: true
+  render:
+    only_html_asset: true
+    forbid_go_file: true
+    # 强制两层结构：一级业务模块 / 二级子页面
+    layer_limit: 2
+    forbid_flat_root_html: true
+    forbid_multi_layer_nest: true
 
-# 全局强制校验规则
-rules:
-  # 语言强制规则：全局中文（与Kitex统一）
-  language:
-    all_spec_must_chinese: true
-    all_comment_must_chinese: true
-    no_pinyin: true
-    no_english_only_doc: true
-    no_mix_language: true
+# ====================== 5. 分层职责 & 依赖白名单 ======================
+layer_rule:
+  # 单向依赖：只允许从上到下，禁止反向/循环依赖
+  deps_whitelist:
+    golang/biz/handle: ["golang/biz/logic", "golang/biz/convert", "golang/biz/dal"]
+    golang/biz/logic: ["golang/biz/convert", "golang/biz/dal"]
+    golang/biz/convert: []
+    golang/biz/dal: []
+  layer_constraint:
+    # handle层：允许轻量业务、缓存，禁止重型通用业务
+    handle_allow_light_biz: true
+    handle_allow_cache_opt: true
+    handle_forbid_heavy_biz: true
+    handle_forbid_raw_sql: true
+    # logic层：纯通用复用业务，禁止依赖上层
+    logic_forbid_depend_upper: true
+    # convert层：只做模型转换，禁止业务逻辑
+    convert_forbid_biz_logic: true
 
-  # Web分层依赖强制校验（Hertz专属，与RPC分层隔离）
-  layer:
-    allow_deps:
-      - Handler -> Service
-      - Service -> Logic
-      - Service -> DAL
-      - Service -> Convert
-      - Logic -> DAL
-      - Logic -> Convert
-    forbid_deps:
-      - Logic 依赖 Service、Handler
-      - Handler 直接调用 DAL、Logic
-      - Convert 存在业务逻辑
-      - 跨层非法调用
+# ====================== 6. DAL 层强制规范（与RPC完全对齐） ======================
+dal:
+  db_init_file: "golang/biz/dal/gormL/init.go"
+  multi_db_isolate: true
+ # Where查询构造器规范
+  where:
+    enable: true
+    forbid_raw_sql: true
+    # 唯一入口：禁止手动new，只能Repo.GetWhere()
+    only_from_repo_get: true
+  # Repo仓储规范
+  repo:
+    forbid_global_singleton: true
+    must_new_instance: true
+    must_implement_get_where: true
+  # 统一分页规范
+  page:
+    limit_plus_one: true
+    auto_calc_has_more: true
+    auto_clip_list: true
+    page_struct: "widget.Page"
 
-  # 目录结构强制规范（Hertz Web专属）
-  dir_layout:
-    standard: |
-      biz/handler 接口控制器层
-      biz/service 业务服务层
-      biz/logic 通用复用逻辑层
-      biz/dal/gormL/{db_name} 分库数据层
-      biz/dal/gormL/{db_name}/where 链式查询构造器
-      biz/dal/redis/{db_name} 缓存层
-      biz/convert 模型转换层
-      conf 配置层
-      router 路由注册层
-      hz_gen 自动生成代码(只读)
+# ====================== 7. 脚手架生成规范 ======================
+hz_scaffold:
+  proto_mode: true
+  forbid_manual_write_router: true
+  forbid_manual_write_model: true
+  update_by_proto_only: true
 
-  # Golang 全局通用编码规范（Kitex、Hertz完全统一）
-  coding:
-    struct_full_init: true
-    auto_type_infer: true
-    no_var_shadow: true
-    infinite_loop_for_true: true
-    raw_string_json: true
-    no_global_state_main: true
-    lint_nolint_format: true
-    comment_double_slash: true
-
-  # 代码生成规范（Hertz专属）
-  generate:
-    web_candler_template: true
-    repo_no_singleton: true
-    where_chain_mode: true
-    dal_db_split_dir: true
+# ====================== 8. 全局红线禁止规则 ======================
+forbidden_rule:
+  - "禁止logic层反向依赖handle上层模块，禁止循环依赖"
+  - "禁止convert层编写任何业务判断、数据处理、流程逻辑"
+  - "禁止handle层编写可复用重型通用业务逻辑，必须下沉logic"
+  - "禁止手动new实例化Where结构体，必须通过Repo.GetWhere()获取"
+  - "禁止手写裸SQL，全部使用where链式构造器查询"
+  - "禁止Repo全局单例，每次使用必须新建实例"
+  - "禁止conf目录存放Go源码文件，仅允许yaml配置"
+  - "禁止手动修改router、model脚手架自动生成代码"
+  - "禁止业务硬编码常量、状态、时间、ID等固定数据"
+  - "禁止render目录层级混乱，必须严格两层结构：一级业务模块/二级子页面"
