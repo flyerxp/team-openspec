@@ -187,13 +187,13 @@ package where
 
 import "github.com/flyerxp/lib/v2/middleware/gormL"
 
-type NewsListWhere struct {
+type DemoListWhere struct {
 
 &#x20;       \*gormL.BaseWhere
 
 }
 
-func (w \*NewsListWhere) TitleLike(title string) \*NewsListWhere {
+func (w \*DemoListWhere) TitleLike(title string) \*DemoListWhere {
 
 &#x20;       w.Where("title LIKE ?", title+"%")
 
@@ -223,7 +223,7 @@ import (
 
 &#x20;       "github.com/flyerxp/lib/v2/middleware/gormL"
 
-&#x20;       "github.com/flyerxp/content.news.rpc/v2/biz/dal/gormL/ch123/where"
+&#x20;       "github.com/flyerxp/content.Demo.rpc/v2/biz/dal/gormL/ch123/where"
 
 &#x20;       "github.com/flyerxp/globalStruct/widget"
 
@@ -231,9 +231,9 @@ import (
 
 )
 
-// NewsInfo 新闻资讯 GORM 模型
+// DemoInfo 新闻资讯 GORM 模型
 
-type NewsInfo struct {
+type DemoInfo struct {
 
 &#x20;       Id           int       \`gorm:"column:id;primaryKey;autoIncrement" json:"id,omitempty"\`
 
@@ -243,41 +243,41 @@ type NewsInfo struct {
 
 }
 
-func (NewsInfo) TableName() string {return "news\_info"}
+func (DemoInfo) TableName() string {return "Demo\_info"}
 
-// NewsRepo 数据仓储
+// DemoRepo 数据仓储
 
-type NewsRepo struct{}
+type DemoRepo struct{}
 
-// NewNewsRepo 新建实例
+// NewDemoRepo 新建实例
 
-func NewNewsRepo() \*NewsRepo {return \&NewsRepo{}}
+func NewDemoRepo() \*DemoRepo {return \&DemoRepo{}}
 
 // GetWhere 强制方法
 
-func (n \*NewsRepo) GetWhere() \*where.NewsListWhere {
+func (n \*DemoRepo) GetWhere() \*where.DemoListWhere {
 
-&#x20;       return \&where.NewsListWhere{BaseWhere: \&gormL.BaseWhere{}}
+&#x20;       return \&where.DemoListWhere{BaseWhere: \&gormL.BaseWhere{}}
 
 }
 
-func (r \*NewsRepo) getDB(ctx context.Context) \*gorm.DB {
+func (r \*DemoRepo) getDB(ctx context.Context) \*gorm.DB {
 
-&#x20;       return gormL.GetDB(ctx).Model(\&NewsInfo{})
+&#x20;       return gormL.GetDB(ctx).Model(\&DemoInfo{})
 
 }
 
 // 分页结构体
 
-type NewsInfoListColsPage struct {
+type DemoInfoListColsPage struct {
 
-&#x20;       List \[]NewsListCols
+&#x20;       List \[]DemoListCols
 
 &#x20;       Page widget.Page
 
 }
 
-func (n \*NewsInfoListColsPage) DoPage() \*NewsInfoListColsPage {
+func (n \*DemoInfoListColsPage) DoPage() \*DemoInfoListColsPage {
 
 &#x20;       n.Page.HasMore = len(n.List) > n.Page.Size
 
@@ -293,11 +293,11 @@ func (n \*NewsInfoListColsPage) DoPage() \*NewsInfoListColsPage {
 
 // GetList 分页查询
 
-func (r \*NewsRepo) GetList(ctx context.Context, w \*where.NewsListWhere, sort string, page int, limit int) (\*NewsInfoListColsPage, error) {
+func (r \*DemoRepo) GetList(ctx context.Context, w \*where.DemoListWhere, sort string, page int, limit int) (\*DemoInfoListColsPage, error) {
 
-&#x20;       var list \[]NewsListCols
+&#x20;       var list \[]DemoListCols
 
-&#x20;       pageObj := NewsInfoListColsPage{List: list, Page: widget.Page{Size: limit,Page: page}}
+&#x20;       pageObj := DemoInfoListColsPage{List: list, Page: widget.Page{Size: limit,Page: page}}
 
 &#x20;       db := r.getDB(ctx).Select("id","title","category\_id")
 

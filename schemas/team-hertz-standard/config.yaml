@@ -16,7 +16,7 @@ code_rule:
   auto_type_infer: true
   forbid_var_shadow: true
   forbid_global_biz_var: true
- lint_nolint_allow: true
+  lint_nolint_allow: true
 
 # ====================== 3. 工程目录结构约束 ======================
 dir_struct:
