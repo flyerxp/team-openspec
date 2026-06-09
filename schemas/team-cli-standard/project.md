@@ -353,6 +353,85 @@ func (r *DemoRepo) Save(ctx context.Context, info *DemoInfo, tx *gorm.DB) error 
     - 仅**需要原子性保障、失败可回滚的完整业务事务场景**，允许业务层 通过 gormL.GetDB(ctx) 获取、操作、传递 `tx` 事务实例，以此支撑多操作的统一提交/回滚。
 
 
+### 5.2.3 事务操作标准写法示例
+
+针对事务场景，提供两种标准实现写法，业务代码需严格遵循以下模板：
+
+#### 写法 1：手动事务管理（灵活控制提交 / 回滚时机）
+
+```
+ctx := logger.GetContext(context.Background(), "test")
+
+// init req and assert value
+
+tx, e := gormLib.NewTx(gormL.GetDB(ctx))
+
+if e != nil {
+
+       logger.AddError(ctx, zap.Error(e))
+
+       return
+
+}
+
+defer tx.Close()
+
+//业务逻辑代码成功
+
+e = tx.Commit()
+
+if e != nil {
+
+       logger.AddError(ctx, zap.Error(e))
+
+       return
+
+}
+
+//  业务逻辑代码失败
+
+e = tx.Rollback()
+
+if e != nil {
+
+       logger.AddError(ctx, zap.Error(e))
+
+       return
+
+}
+```
+
+#### 写法 2：自动事务管理（GORM 内置方法，自动提交 / 回滚）
+
+```
+ctx := logger.GetContext(context.Background(), "test")
+
+// init req and assert value
+
+e := gormL.GetDB(ctx).Transaction(func(tx \*gorm.DB) error {
+
+       /\*\*
+
+         业务逻辑
+
+       \*/
+
+       // 返回 nil 会自动提交
+
+       return nil
+
+})
+
+if e != nil {
+
+       logger.AddError(ctx, zap.Error(e))
+
+       return
+
+}
+```
+
+
 ### 6.3 统一分页规范
 
 
