@@ -375,7 +375,7 @@ func (r *DemoRepo) Save(ctx context.Context, info *DemoInfo, tx *gorm.DB) error 
       
 3. **强制要求: 除事务操作场景外，禁止在 Service、Logic 层直接调用 gormL.GetDB(ctx) 操作数据库 **
 
-   - 所有常规数据库 CRUD 操作，必须下沉至 Dal/GormL 层统一封装，业务层只允许调用 Dal/GormL 方法。
+   - 所有常规数据库 CRUD 操作，必须下沉至 Dal/GormL 层统一封装，业务层只允许调用 Dal/GormL 下文件里的方法。
 
    - 禁止业务层裸写 DB 读写操作，避免会话条件污染、数据库入口混乱、不统一管控等问题。
 
