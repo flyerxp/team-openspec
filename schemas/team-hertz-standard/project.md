@@ -374,28 +374,29 @@ func Demo1(ctx context.Context) error{
    tx, e := gormLib.NewTx(gormL.GetDB(ctx))
    if e != nil {
           logger.AddError(ctx, zap.Error(e))
-          return
+          return e
    }
    defer tx.Close()
    //业务逻辑代码成功
    e = tx.Commit()
    if e != nil {
           logger.AddError(ctx, zap.Error(e))
-          return
+          return e
    }
    //  业务逻辑代码失败
    e = tx.Rollback()
    if e != nil {
           logger.AddError(ctx, zap.Error(e))
-          return
+          return e
    }
+   return nil
 }
 ```
 
 2. **写法 2：自动事务管理（GORM 内置方法，自动提交 / 回滚）**
 
 ```
-func Demo1(ctx context.Context) error{ 
+func Demo2(ctx context.Context) error{ 
    ctx := logger.GetContext(ctx, "test")
    // init req and assert value
    e := gormL.GetDB(ctx).Transaction(func(tx \*gorm.DB) error {
@@ -407,8 +408,9 @@ func Demo1(ctx context.Context) error{
    })
    if e != nil {
           logger.AddError(ctx, zap.Error(e))
-          return
+          return e
    }
+   return nil
 }
 ```
 

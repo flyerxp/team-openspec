@@ -388,74 +388,49 @@ func (r *DemoRepo) Save(ctx context.Context, info *DemoInfo, tx *gorm.DB) error 
 ##### 写法 1：手动事务管理（灵活控制提交 / 回滚时机）
 
 ```
-ctx := logger.GetContext(context.Background(), "test")
-
-// init req and assert value
-
-tx, e := gormLib.NewTx(gormL.GetDB(ctx))
-
-if e != nil {
-
-       logger.AddError(ctx, zap.Error(e))
-
-       return
-
-}
-
-defer tx.Close()
-
-//业务逻辑代码成功
-
-e = tx.Commit()
-
-if e != nil {
-
-       logger.AddError(ctx, zap.Error(e))
-
-       return
-
-}
-
-//  业务逻辑代码失败
-
-e = tx.Rollback()
-
-if e != nil {
-
-       logger.AddError(ctx, zap.Error(e))
-
-       return
-
+func Demo1(ctx context.Context) error{ 
+   ctx := logger.GetContext(ctx, "test")
+   // init req and assert value
+   tx, e := gormLib.NewTx(gormL.GetDB(ctx))
+   if e != nil {
+          logger.AddError(ctx, zap.Error(e))
+          return e
+   }
+   defer tx.Close()
+   //业务逻辑代码成功
+   e = tx.Commit()
+   if e != nil {
+          logger.AddError(ctx, zap.Error(e))
+          return e
+   }
+   //  业务逻辑代码失败
+   e = tx.Rollback()
+   if e != nil {
+          logger.AddError(ctx, zap.Error(e))
+          return e
+   }
+   return nil
 }
 ```
 
 ##### 写法 2：自动事务管理（GORM 内置方法，自动提交 / 回滚）
 
 ```
-ctx := logger.GetContext(context.Background(), "test")
-
-// init req and assert value
-
-e := gormL.GetDB(ctx).Transaction(func(tx \*gorm.DB) error {
-
-       /\*\*
-
-         业务逻辑
-
-       \*/
-
-       // 返回 nil 会自动提交
-
-       return nil
-
-})
-
-if e != nil {
-
-       logger.AddError(ctx, zap.Error(e))
-
-       return
-
+func Demo2(ctx context.Context) error{ 
+   ctx := logger.GetContext(ctx, "test")
+   // init req and assert value
+   e := gormL.GetDB(ctx).Transaction(func(tx \*gorm.DB) error {
+          /\*\*
+            业务逻辑
+          \*/
+          // 返回 nil 会自动提交
+          return nil
+   })
+   if e != nil {
+          logger.AddError(ctx, zap.Error(e))
+          return e
+   }
+   return nil
 }
 ```
 
