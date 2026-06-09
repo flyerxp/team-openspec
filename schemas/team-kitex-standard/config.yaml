@@ -77,7 +77,7 @@ layer_constraint:
   service_can_hold_light_biz: true
   service_can_hold_cache: true
   service_forbid_heavy_biz: true
- service_forbid_raw_sql: true
+  service_forbid_raw_sql: true
   logic_forbid_depend_upper: true
   convert_forbid_biz_logic: true
   dal_forbid_hard_code: true
@@ -96,7 +96,7 @@ forbidden_rule:
   - "禁止Repo全局单例，必须新建实例"
   - "禁止手动new实例化Where结构体，必须通过Repo.GetWhere()获取"
   - "禁止手写裸SQL，全部使用where链式构造器"
- - "禁止跨层、反向非法依赖"
+  - "禁止跨层、反向非法依赖"
   - "禁止kitex_gen目录手动修改"
   - "禁止conf目录存放任何Go源码文件"
   - "禁止硬编码业务常量、状态、时间等数据"
