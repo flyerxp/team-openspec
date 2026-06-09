@@ -213,7 +213,6 @@ func (w \*DemoListWhere) TitleLike(title string) \*DemoListWhere {
 #### 6.2.1 标准 Repo + 分页代码示例
 
 ```
-
 package shop
 import (
 	"context"
@@ -227,50 +226,35 @@ type DemoInfo struct {
 	Id     int    `gorm:"column:id;primaryKey;autoIncrement"`
 	Title  string `gorm:"column:title;size:255"`
 	Status int    `gorm:"column:status"`
-}
-// ModuleInfo 模块示例表模型（适配Save事务示例）
-type ModuleInfo struct {
-	Id     int    `gorm:"column:id;primaryKey;autoIncrement"`
-	Path   string `gorm:"column:path;size:500"`
+	Path string `gorm:"column:path;size:255"`
 	RootId int    `gorm:"column:root_id"`
 }
 // TableName 指定表名
 func (DemoInfo) TableName() string {
 	return "demo_info"
 }
-// TableName 指定表名
-func (ModuleInfo) TableName() string {
-	return "module_info"
-}
 // DemoRepo 数据仓储层
 type DemoRepo struct{}
-// ModuleRepo 模块数据仓储层
-type ModuleRepo struct{}
 
 // NewDemoRepo 构造方法：每次新建实例，禁止全局单例
 func NewDemoRepo() *DemoRepo {
 	return &DemoRepo{}
 }
-// NewModuleRepo 构造方法：每次新建实例，禁止全局单例
-func NewModuleRepo() *ModuleRepo {
-	return &ModuleRepo{}
-}
 
 // GetWhere 强制实现：Where对象唯一获取入口
 func (r *DemoRepo) GetWhere() *where.DemoListWhere {
-	return &where.DemoListWhere{BaseWhere: &gormLib.BaseWhere{}} 
+	return &where.DemoListWhere{BaseWhere: &gormL.BaseWhere{}} 
 }
 
 // GetGormModel 获取绑定上下文的DB实例
-func (r *DemoRepo) GetGormModel(ctx context.Context) *gorm.DB {
-	return gormL.GetDB(ctx).Model(&DemoInfo{})
+func (r *DemoRepo) GetGormModel(ctx context.Context, tx *gorm.DB) *gorm.DB {
+	if tx != nil {
+        // 有事务：创建新会话避免污染外部事务
+        return tx.Session(&gorm.Session{}).Model(&DemoInfo{})
+    }
+    // 无事务：使用默认连接
+    return gormL.GetDB(ctx).Model(&DemoInfo{})
 }
-
-// GetGormModel 获取绑定上下文的DB实例
-func (r *ModuleRepo) GetGormModel(ctx context.Context) *gorm.DB {
-	return gormL.GetDB(ctx).Model(&ModuleInfo{})
-}
-
 // DemoListPage 统一分页结构体
 type DemoListPage struct {
 	List []DemoInfo
@@ -293,7 +277,7 @@ func (r *DemoRepo) ListPage(ctx context.Context, w *where.DemoListWhere, page, l
 		Page: widget.Page{Page: page, Size: limit},
 	}
 	// 基础查询
-	db := r.GetGormModel(ctx)
+	db := r.GetGormModel(ctx, nil)
 	// 拼接where条件
 	if w != nil {
 		db = w.Build(db)
@@ -310,33 +294,19 @@ func (r *DemoRepo) ListPage(ctx context.Context, w *where.DemoListWhere, page, l
 	return pageObj.DoPage(), nil
 }
 
-// UpdatePathById 事务/非事务通用更新方法（链式Updates操作规范示例）
-// 适用场景：Updates、Where、Select等链式更新操作
+
 func (r *DemoRepo) UpdatePathById(ctx context.Context, id int, path string, rootId int, tx *gorm.DB) error {
-	db := tx
-	if db == nil {
-		// 无事务：使用预设表模型的标准DB实例
-		db = r.GetGormModel(ctx)
-	} else {
-		// 【强制红线】事务链式操作必须手动绑定当前表模型
-		db = db.Model(&DemoInfo{})
-	}
+	db := r.GetGormModel(ctx, tx)
 	return db.Where("id = ?", id).Updates(map[string]interface{}{
 		"path":    path,
 		"root_id": rootId,
 	}).Error
 }
 
-// UpdatePathById 事务/非事务通用保存方法（Save结构体保存规范示例）
-// 适用场景：完整模型结构体保存、更新，依托结构体自动识别表模型
-func (r *ModuleRepo) UpdatePathById(ctx context.Context, info *ModuleInfo, tx *gorm.DB) error {
-	// 事务场景：Save依托结构体自动识别表模型，无需手动Model绑定
-	if tx != nil {
-		return tx.Save(info).Error
-	}
-	// 非事务场景：统一使用标准绑定模型DB实例
-	return r.GetGormModel(ctx).Save(info).Error
+func (r *DemoRepo) Save(ctx context.Context, info *DemoInfo, tx *gorm.DB) error {
+	return r.GetGormModel(ctx, tx).Save(info).Error
 }
+
 ```
 
 #### 6.2.2 事务参数处理强制规范
