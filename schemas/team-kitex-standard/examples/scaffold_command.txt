@@ -1,0 +1,5 @@
+# Kitex脚手架标准生成命令（项目固定模板）
+# 使用说明：替换最后一个参数为你的目标proto文件路径即可
+# 示例：kitex -type protobuf  -template-dir layout -I idl/ -module github.com/flyerxp/shopping.report/v2  idl/report_service.proto
+
+kitex -type protobuf  -template-dir layout -I idl/ -module github.com/flyerxp/shopping.report/v2  idl/目标服务文件.proto

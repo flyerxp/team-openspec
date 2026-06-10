@@ -1,102 +1,106 @@
-project:
-  name: "kitex-protobuf-rpc-service"
-  display_name: "Kitex Protobuf RPC微服务"
-  service_type: ["rpc"]
-  description: "基于Kitex+Protobuf+GORM+Redis构建的纯同步RPC微服务"
-  tech_stack: ["Golang", "Kitex", "Protobuf", "GORM", "Redis"]
-  spec_version: "v1.0"
-  align_spec: "Kitex_Protobuf_RPC_Standard"
-  language: "zh-CN"
-  comment_rule: "single_line"
-  string_rule: "backtick"
-  loop_rule: "infinite_for"
-  struct_init_rule: "aggregate"
-  variable_rule: "auto_infer"
-  shadow_variable: "disable"
+# OpenSpec 1.4.1 新版配置文件（已完成旧版project.md+旧config完整迁移）
+version: "1.0"
+context:
+  # 项目基础信息
+  project: "Kitex Protobuf RPC微服务"
+  description: "基于Kitex+Protobuf+GORM+Redis构建的纯同步RPC微服务，完全对齐字节跳动Kitex官方脚手架与团队统一DAL规范，所有Kitex RPC项目强制生效"
+  tech_stack: ["Golang 1.21+", "Kitex(Protobuf)", "GORM v2", "Redis 6.0+", "Protobuf"]
+  
+  # 示例代码文件引用（AI会自动读取这些文件作为编码参考）
+  examples:
+    - path: "openspec/examples/where_constructor_example.go"
+      description: "Where查询构造器标准写法，链式调用、类型安全，禁止手写裸SQL"
+    - path: "openspec/examples/repo_page_example.go"
+      description: "Repo仓储层+统一分页标准实现，包含CRUD、更新方法选型、事务参数传递"
+    - path: "openspec/examples/transaction_example.go"
+      description: "数据库事务操作标准写法，手动/自动事务两种标准模式"
+    - path: "openspec/examples/db_init_example.go"
+      description: "多数据库初始化标准模板，全局唯一DB入口，支持多库隔离"
+    - path: "openspec/examples/scaffold_command.txt"
+      description: "Kitex脚手架标准生成命令模板，所有RPC代码生成必须以此为准"
+  
+  # 全局强制规约（已整合旧project.md+旧config的所有规则）
+  conventions:
+    # 语言规范
+    language:
+      all_docs_use_zh: true
+      allowed_english_terms: ["ctx", "db", "req", "resp", "gorm", "redis", "kitex"]
+    
+    # 编码规范
+    code:
+      struct_init_mode: "aggregate"
+      variable_auto_infer: true
+      forbid_shadow_variable: true
+      infinite_loop_style: "for{}"
+      json_use_raw_string: true
+      forbid_global_biz_var: true
+      single_line_comment_only: true
+      lint_nolint_support: true
+    
+    # 目录结构规范
+    directory:
+      root_dirs: ["idl", "kitex_gen", "layout", "conf", "biz"]
+      biz_sub_dirs: ["service", "logic", "convert", "dal/gormL", "dal/redis"]
+      dir_rules:
+        conf:
+          only_allow_yaml: true
+          forbid_go_source: true
+        kitex_gen:
+          forbid_manual_edit: true
+        idl:
+          only_allow_protobuf: true
+    
+    # 分层职责约束
+    layer:
+      service:
+        can_hold_light_biz: true
+        can_hold_cache_op: true
+        forbid_heavy_biz: true
+        forbid_raw_sql: true
+      logic:
+        forbid_depend_upper_layer: true
+      convert:
+        forbid_biz_logic: true
+      dal:
+        forbid_hard_code: true
+    
+    # 分层依赖白名单
+    deps_whitelist:
+      biz/service: ["biz/logic", "biz/convert", "biz/dal"]
+      biz/logic: ["biz/convert", "biz/dal"]
+    
+    # DAL层全局规范
+    dal:
+      db_isolate_mode: "multi_db_isolate"
+      init_file_path: "biz/dal/gormL/init.go"
+      where_constructor:
+        enable: true
+        base_struct: "gormL.BaseWhere"
+        forbid_raw_sql: true
+      repo:
+        forbid_global_singleton: true
+        must_implement_get_where: true
+        where_only_from_repo_method: true
+      page:
+        limit_plus_one_mode: true
+        auto_calc_has_more: true
+        standard_page_struct: "widget.Page"
+    
+    # 全局禁止行为红线
+    forbidden_rules:
+      - "禁止logic层反向依赖service上层模块"
+      - "禁止convert层编写任何业务逻辑、判断逻辑"
+      - "禁止Repo全局单例，必须每次新建实例"
+      - "禁止手动new实例化Where结构体，必须通过Repo.GetWhere()获取"
+      - "禁止手写裸SQL，所有查询必须使用where链式构造器"
+      - "禁止跨层、反向非法依赖，严格遵守分层白名单"
+      - "禁止手动修改kitex_gen自动生成目录的代码"
+      - "禁止conf目录存放任何Go源码文件"
+      - "禁止硬编码业务常量、状态、时间等数据"
 
-# ====================== 工程目录结构（强制对齐） ======================
-dir_struct:
-  root_keep:
-    - "idl"
-    - "kitex_gen"
-    - "layout"
-    - "conf"
-  biz:
-    - "biz/service"
-    - "biz/logic"
-    - "biz/convert"
-    - "biz/dal/gormL"
-    - "biz/dal/redis"
+# 绑定当前使用的AI工具
+tools:
+  - name: "Qoder"
 
-# ====================== 目录专属约束 ======================
-dir_rule:
-  conf:
-    only_yaml: true
-    forbid_go_file: true
-  kitex_gen:
-    manual_edit_forbid: true
-  idl:
-    only_protobuf: true
-
-# ====================== DAL层全局规范 ======================
-dal:
-  db_mode: "multi_db_isolate"
-  init_file: "biz/dal/gormL/init.go"
-  # 查询构造器规范
-  where:
-    enable: true
-    base_struct: "gormL.BaseWhere"
-    file_naming: "table_name_lower"
-    struct_naming: "table_camel+ListWhere"
-    private_method: true
-    raw_sql: false
-  # Repo仓储规范
-  repo:
-    singleton: false
-    must_get_where: true
-    new_instance: true
-    # 强制：Where对象唯一入口为Repo.GetWhere()
-    where_only_from_repo: true
-  # 全局统一分页规范
-  page:
-    limit_offset_mode: true
-    limit_plus_one: true
-    auto_has_more: true
-    auto_clip_list: true
-    page_struct: "widget.Page"
-
-# ====================== 分层依赖白名单（严格只读） ======================
-deps_whitelist:
-  biz/service: ["biz/logic", "biz/convert", "biz/dal"]
-  biz/logic: ["biz/convert", "biz/dal"]
-  biz/convert: []
-  biz/dal: []
-
-# ====================== 分层职责强制约束 ======================
-layer_constraint:
-  service_can_hold_light_biz: true
-  service_can_hold_cache: true
-  service_forbid_heavy_biz: true
-  service_forbid_raw_sql: true
-  logic_forbid_depend_upper: true
-  convert_forbid_biz_logic: true
-  dal_forbid_hard_code: true
-
-# ====================== 编码强制规则 ======================
-code_rule:
-  global_biz_var: false
-  var_shadow: false
-  lint_nolint: true
-  kitex_protobuf_standard: true
-
-# ====================== 全局红线禁止规则 ======================
-forbidden_rule:
-  - "禁止logic层反向依赖service上层模块"
-  - "禁止convert层编写任何业务逻辑、判断逻辑"
-  - "禁止Repo全局单例，必须新建实例"
-  - "禁止手动new实例化Where结构体，必须通过Repo.GetWhere()获取"
-  - "禁止手写裸SQL，全部使用where链式构造器"
-  - "禁止跨层、反向非法依赖"
-  - "禁止kitex_gen目录手动修改"
-  - "禁止conf目录存放任何Go源码文件"
-  - "禁止硬编码业务常量、状态、时间等数据"
+# 强制禁用交互模式（彻底解决Windows终端兼容性卡死问题）
+no_interactive: true
