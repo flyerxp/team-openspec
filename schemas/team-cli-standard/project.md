@@ -77,15 +77,15 @@ biz/
 
 └── dal/
 
-&#x20;   ├── gormL/
+   ├── gormL/
 
-&#x20;   │   └── {db\_name}/
+   │   └── {db\_name}/
 
-&#x20;   │       └── where/  // 链式查询构造器
+   │       └── where/  // 链式查询构造器
 
-&#x20;   └── redis/
+   └── redis/
 
-&#x20;       └── {db\_name}/  // Redis数据层
+       └── {db\_name}/  // Redis数据层
 ```
 
 ### 3.2 定时任务 crontab
@@ -189,15 +189,15 @@ import "github.com/flyerxp/lib/v2/middleware/gormL"
 
 type DemoListWhere struct {
 
-&#x20;       \*gormL.BaseWhere
+       \*gormL.BaseWhere
 
 }
 
 func (w \*DemoListWhere) TitleLike(title string) \*DemoListWhere {
 
-&#x20;       w.Where("title LIKE ?", title+"%")
+       w.Where("title LIKE ?", title+"%")
 
-&#x20;       return w
+       return w
 
 }
 ```
@@ -322,7 +322,7 @@ func (r *DemoRepo) Save(ctx context.Context, info *DemoInfo, tx *gorm.DB) error 
 
 ```
 
-#### 5\.2\.2 更新方法选型规范
+#### 5.2.2 更新方法选型规范
 
 针对路径更新场景，提供两种更新方法，需根据业务场景严格选型：
 
@@ -432,21 +432,21 @@ package gormL
 
 import (
 
-&#x20;       "context"
+       "context"
 
-&#x20;       "github.com/flyerxp/lib/v2/logger"
+       "github.com/flyerxp/lib/v2/logger"
 
-&#x20;       "github.com/flyerxp/lib/v2/middleware/gormL"
+       "github.com/flyerxp/lib/v2/middleware/gormL"
 
-&#x20;       "gorm.io/gorm"
+       "gorm.io/gorm"
 
 )
 
 type DBClient struct {
 
-&#x20;       Shop   \*gorm.DB
+       Shop   \*gorm.DB
 
-&#x20;       Report \*gorm.DB
+       Report \*gorm.DB
 
 }
 
@@ -454,67 +454,67 @@ var dbClient \*DBClient
 
 func Init(ctx context.Context) error {
 
-&#x20;       if dbClient != nil {
+       if dbClient != nil {
 
-&#x20;               return nil
+               return nil
 
-&#x20;       }
+       }
 
-&#x20;       shopDB, err := gormL.GetEngine(ctx, "readshop")
+       shopDB, err := gormL.GetEngine(ctx, "readshop")
 
-&#x20;       if err != nil {
+       if err != nil {
 
-&#x20;               return err
+               return err
 
-&#x20;       }
+       }
 
-&#x20;       reportDB, err := gormL.GetEngine(ctx, "report")
+       reportDB, err := gormL.GetEngine(ctx, "report")
 
-&#x20;       if err != nil {
+       if err != nil {
 
-&#x20;               return err
+               return err
 
-&#x20;       }
+       }
 
-&#x20;       dbClient = \&DBClient{Shop: shopDB, Report: reportDB}
+       dbClient = \&DBClient{Shop: shopDB, Report: reportDB}
 
-&#x20;       return nil
+       return nil
 
 }
 
 func GetShopDB(ctx context.Context) \*gorm.DB {
 
-&#x20;       if dbClient == nil {
+       if dbClient == nil {
 
-&#x20;               initCtx := logger.GetContext(context.Background(), "gormInit")
+               initCtx := logger.GetContext(context.Background(), "gormInit")
 
-&#x20;               if err := Init(initCtx); err != nil {
+               if err := Init(initCtx); err != nil {
 
-&#x20;                       panic(err)
+                       panic(err)
 
-&#x20;               }
+               }
 
-&#x20;       }
+       }
 
-&#x20;       return dbClient.Shop.WithContext(ctx)
+       return dbClient.Shop.WithContext(ctx)
 
 }
 
 func GetReportDB(ctx context.Context) \*gorm.DB {
 
-&#x20;       if dbClient == nil {
+       if dbClient == nil {
 
-&#x20;               initCtx := logger.GetContext(context.Background(), "gormInit")
+               initCtx := logger.GetContext(context.Background(), "gormInit")
 
-&#x20;               if err := Init(initCtx); err != nil {
+               if err := Init(initCtx); err != nil {
 
-&#x20;                       panic(err)
+                       panic(err)
 
-&#x20;               }
+               }
 
-&#x20;       }
+       }
 
-&#x20;       return dbClient.Report.WithContext(ctx)
+       return dbClient.Report.WithContext(ctx)
 
 }
 ```
