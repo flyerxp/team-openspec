@@ -12,7 +12,7 @@ context:
   
   # 关联代码示例文件（AI自动读取参考）
   examples:
-    - path: "openspec/examples/where_constructor_example.go"
+    - path: "openspec/examples/where/where_constructor_example.go"
       description: "Where链式查询构造器标准写法，类型安全禁止裸SQL"
     - path: "openspec/examples/repo_page_example.go"
       description: "Repo仓储层+统一分页完整实现，包含CRUD、更新方法选型"

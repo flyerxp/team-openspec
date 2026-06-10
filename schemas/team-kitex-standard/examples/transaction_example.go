@@ -1,4 +1,4 @@
-package demo
+package rpcExamples
 
 import (
 	"context"
@@ -11,9 +11,9 @@ import (
 
 // Demo1 手动事务管理（灵活控制提交/回滚时机）
 func Demo1(ctx context.Context) error {
-	ctx := logger.GetContext(ctx, "test")
+	ctx = logger.GetContext(ctx, "test")
 	// 初始化事务
-	tx, e := gormL.NewTx(gormL.GetDB(ctx))
+	tx, e := gormL.NewTx(GetShopDB(ctx))
 	if e != nil {
 		logger.AddError(ctx, zap.Error(e))
 		return e
@@ -41,9 +41,9 @@ func Demo1(ctx context.Context) error {
 
 // Demo2 自动事务管理（GORM内置方法，自动提交/回滚）
 func Demo2(ctx context.Context) error {
-	ctx := logger.GetContext(ctx, "test")
+	ctx = logger.GetContext(ctx, "test")
 	// 自动事务：返回nil自动提交，返回error自动回滚
-	e := gormL.GetDB(ctx).Transaction(func(tx *gorm.DB) error {
+	e := GetShopDB(ctx).Transaction(func(tx *gorm.DB) error {
 		/**
 		  业务逻辑代码...
 		*/

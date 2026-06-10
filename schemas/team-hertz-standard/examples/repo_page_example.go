@@ -1,11 +1,11 @@
-package shop
+package webExamples
 
 import (
 	"context"
+	"webExamples/examples/where"
 
-	"github.com/flyerxp/lib/v2/middleware/gormL"
-	"github.com/flyerxp/manage/v2/golang/biz/dal/gormL/shop/where"
 	"github.com/flyerxp/globalStruct/widget"
+	"github.com/flyerxp/lib/v2/middleware/gormL"
 	"gorm.io/gorm"
 )
 
@@ -43,7 +43,7 @@ func (r *DemoRepo) getGormModel(ctx context.Context, tx *gorm.DB) *gorm.DB {
 		return tx.Session(&gorm.Session{}).Model(&DemoInfo{})
 	}
 	// 无事务：使用默认连接
-	return gormL.GetDB(ctx).Model(&DemoInfo{})
+	return GetShopDB(ctx).Model(&DemoInfo{})
 }
 
 // DemoListPage 统一分页结构体标准示例

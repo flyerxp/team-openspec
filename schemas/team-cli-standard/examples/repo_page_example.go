@@ -1,11 +1,10 @@
-package shop
+package cliExamples
 
 import (
+	"cliExamples/examples/where"
 	"context"
-
-	"github.com/flyerxp/lib/v2/middleware/gormL"
-	"github.com/flyerxp/manage/v2/biz/dal/gormL/shop/where"
 	"github.com/flyerxp/globalStruct/widget"
+	"github.com/flyerxp/lib/v2/middleware/gormL"
 	"gorm.io/gorm"
 )
 
@@ -38,12 +37,13 @@ func (r *DemoRepo) GetWhere() *where.DemoListWhere {
 
 // getGormModel 获取绑定上下文的DB实例，支持事务传递
 func (r *DemoRepo) getGormModel(ctx context.Context, tx *gorm.DB) *gorm.DB {
+
 	if tx != nil {
 		// 有事务：创建新会话避免污染外部事务
 		return tx.Session(&gorm.Session{}).Model(&DemoInfo{})
 	}
 	// 无事务：使用默认连接
-	return gormL.GetDB(ctx).Model(&DemoInfo{})
+	return GetShopDB(ctx).Model(&DemoInfo{})
 }
 
 // DemoListPage 统一分页结构体标准示例
