@@ -38,6 +38,7 @@ context:
       lint_nolint_support: true
     
     # 目录结构规范
+    # 目录结构规范
     directory:
       root_dirs: ["idl", "kitex_gen", "layout", "conf", "biz"]
       biz_sub_dirs: ["service", "logic", "convert", "dal/gormL", "dal/redis"]
@@ -49,7 +50,13 @@ context:
           forbid_manual_edit: true
         idl:
           only_allow_protobuf: true
-    
+        # 多库目录自动创建
+        biz/dal/gormL:
+          auto_create_sub_db_dir: true
+        # 所有业务库下 where 目录约束
+        biz/dal/gormL/*/where:
+          only_allow_go: true
+          forbid_other_file: true
     # 分层职责约束
     layer:
       service:
