@@ -100,55 +100,47 @@ context:
   
   # DAL层强制规范
   dal:
-    db_init_file: "golang/biz/dal/gormL/init.go"
-    multi_db_isolate: true
-    where:
+    db_isolate_mode: "multi_db_isolate"
+    init_file_path: "biz/dal/gormL/init.go"
+    where_constructor:
       enable: true
+      base_struct: "gormL.BaseWhere"
       forbid_raw_sql: true
-      only_from_repo_get: true
     repo:
       forbid_global_singleton: true
-      must_new_instance: true
       must_implement_get_where: true
+      where_only_from_repo_method: true
     page:
-      limit_plus_one: true
+      limit_plus_one_mode: true
       auto_calc_has_more: true
-      auto_clip_list: true
-      page_struct: "widget.Page"
+      standard_page_struct: "widget.Page"
+    # 修复1：全部移入dal内部，此前层级外飘导致框架无法识别
     join_spec:
       enable: true
-      # 修正目录层级：库级和where平级，而非单表内平级
       join_dir_relation: "db_level_sibling_with_where"
-      # joins内部子目录约束
       joins_sub_dir: ["where"]
-      # 红线禁止项【全部同步最终Joins落地方案，清理过时Preload规则】
       forbidden_rules:
         - 禁止自定义任何表别名，全链路使用数据库原生表名
         - 禁止where、order、join条件省略表名，所有多表关联查询必须携带原生表名
         - 禁止单表repo内追加Joins语句，所有JOIN查询全部收敛至库级joins目录
         - 禁止SELECT * 查询，连表查询必须显式携带【`表名`.`字段`】，重名字段强制SQL别名
         - 禁止在joins承接DTO内定义TableName、gorm.Model、gorm关联标签
-        - 禁止使用Preload做跨表关联查询，Preload仅允许用于一对一嵌套展示场景
+        - 禁止Preload用于常规跨表关联，仅允许一对一嵌套返回边缘场景使用
         - Where层禁止结构体属性入参，统一使用链式方法返回自身
         - 禁止exists模拟内连接，内外连接统一通过db.Joins原生语法切换
-      # 全局连表字段默认配置
       column_spec:
-        # 强制字段语法模板
         syntax: "`table_name`.`column_name`"
-        # 重名字段别名强制规则
         duplicate_alias_rule: "关联表同名字段统一别名: 关联表短前缀_字段名，例demo_info_price.id => price_id"
-      # 重构preload_spec：仅保留边缘场景约束，不作为主流连表方案
+      # 修复2：弱化Preload配置，明确边缘场景，解决前后语义冲突
       preload_spec:
         table_source: "仅读取dal原生db模型TableName，不读取joins承接DTO"
-        usage_limit: "仅用于前端需要嵌套结构体返回的一对一场景，禁止一对多使用"
-      # 新增joins专属核心规约，补齐之前缺失的DTO规范
+        usage_limit: "仅前端一对一嵌套结构体返回使用，禁止一对多、分页、内外连接场景使用"
       joins_spec:
         sql_type: "统一单SQL db.Joins，不使用双SQL预加载"
         join_type: "LEFT JOIN/INNER JOIN直接通过Joins入参切换，无需额外兜底逻辑"
         dto_style: "优先使用嵌套子DTO（主表/关联表字段语义隔离），简单查询可使用字段平铺，禁止混用两种风格"
         one_to_many_rule: "一对多Joins查询必须添加Distinct(`主表.*`)去重，避免主表数据重复"
     repo_extend:
-      # 彻底删除别名相关配置，清理残留注释
       alias_standard: null
       mandatory_method:
         require_alias_field_method: false
@@ -156,13 +148,23 @@ context:
         require_table_alias_method: false
       tx_spec:
         dal_reject_tx_param: true
-        desc: "DAL层所有方法禁止接收tx入参，事务统一上层logic和Service管控"
-    # 新增where全局规约，对齐链式where代码
+        desc: "DAL层所有方法禁止接收tx入参，事务统一上层logic管控"
     where_spec:
       embed_rule: "统一指针内嵌*gormL.BaseWhere，禁止值内嵌"
-      instance_rule: "禁止全局缓存where实例，每次查询通过GetWhere新建实例"
+      instance_rule: "禁止全局缓存where实例，每次查询通过Repo.GetWhere新建实例"
       coding_rule: "禁止结构体存储查询参数，统一链式方法返回自身"
       table_rule: "单表where可省略表名；joins/where无论是否join，全部强制携带原生表名"
+    # 修复3：合并重复repo单例规则，删除冗余重复项
+    forbidden_rules:
+      - 禁止logic层反向依赖service上层模块
+      - 禁止convert层编写任何业务逻辑
+      - 禁止Repo全局单例，和repo.forbid_global_singleton双向对齐
+      - 禁止手动new实例化Where结构体，必须通过Repo.GetWhere()获取
+      - 禁止手写裸SQL，所有查询必须使用where链式构造器
+      - 禁止跨层、反向非法依赖，严格遵守分层白名单
+      - 禁止手动修改kitex_gen自动生成目录的代码
+      - 禁止conf目录存放任何Go源码文件
+      - 禁止硬编码业务常量、状态、时间等数据
   
   # 脚手架生成规范
   hz_scaffold:
