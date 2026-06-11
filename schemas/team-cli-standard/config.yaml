@@ -24,10 +24,6 @@ context:
       description: "Joins连表场景的Where查询构造器标准写法，指针内嵌BaseWhere，链式入参"
     - path: "openspec/examples/joins/repo_page_example.go"
       description: "Joins连表场景的Repo+分页标准实现，Preload连表查询、DTO结果映射"
-    - path: "openspec/examples/where/demo_info_price_where.go"
-      description: "DemoInfoPrice价格表的Where查询构造器标准写法"
-    - path: "openspec/examples/demo_info_price.go"
-      description: "DemoInfoPrice关联表模型定义及仓储层标准实现，包含Repo+GetWhere"
   # 工程目录结构约束
   dir_struct:
     root_keep:
