@@ -33,7 +33,24 @@
       forbid_global_biz_var: true
       single_line_comment_only: true
       lint_nolint_support: true
-
+      error_return_spec:
+        unified_err_util_file: "biz/service/utils.go"
+        three_err_func:
+          system_err: "SystemErr(msg string) kerrors.BizStatusErrorIface"
+          validate_err: "VdCheckErr(msg string) kerrors.BizStatusErrorIface"
+          business_err: "BizErr(msg string) kerrors.BizStatusErrorIface"
+        scene_rule:
+          - func: VdCheckErr
+            usage: "入参字段校验失败、参数格式/数值范围非法、必填项缺失等参数校验场景"
+          - func: BizErr
+            usage: "业务规则不满足、数据不存在、库存不足、状态不允许操作等纯业务逻辑异常"
+          - func: SystemErr
+            usage: "数据库异常、Redis异常、RPC调用失败、IO错误、系统内部未知故障等底层系统异常"
+        forbid_behavior:
+          1. 禁止代码中直接调用 kerrors.NewBizStatusError 生成业务错误
+          2. 禁止直接返回原生 fmt.Errorf、errors.New 等裸error，必须使用上述三个统一包装函数
+          3. 禁止混用错误函数，需严格匹配错误场景选用对应错误方法
+          4. 错误提示文案禁止笼统模糊，需携带业务字段、ID等关键信息便于排查
     directory:
       root_dirs: ["idl", "kitex_gen", "layout", "conf", "biz"]
       biz_sub_dirs: ["service", "logic", "convert", "dal/gormL", "dal/redis"]
@@ -72,6 +89,17 @@
           case: snake_case下划线命名
           field_id_start: 1，自增不跳号、不重复、不删除旧字段id
           forbid_reserved_word: true
+        validate_annotation_spec:
+          mandatory: true
+          annotation_tag: "(api.vd)"
+          standard_format: "(api.vd) = \"校验表达式;msg:sprintf('自定义业务错误文案')\""
+          demo: "int32 ShopId = 1  [(api.path) = \"shop_id\" ,(api.vd) = \"$ >= 0 ;msg:sprintf('店铺ID不能为负数')\"];"
+          common_expression:
+            - 数字ID: "$ > 0 ;msg:sprintf('XXID不能为空')"
+            - 非负数值: "$ >= 0 ;msg:sprintf('XX参数不能为负数')"
+            - 字符串非空: "len($) > 0 ;msg:sprintf('XX字段不能为空')"
+            - 字符串长度限制: "len($) <= 64 ;msg:sprintf('XX长度不能超过64字符')"
+          forbid: 所有需要校验的入参字段禁止省略(api.vd)；禁止全部统一写“参数错误”，需按业务自定义提示文案
         enum_spec:
           name_case: UpperCamelCase大驼峰
           value_name_case: UPPER_SNAKE_CASE全大写下划线
