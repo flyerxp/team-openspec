@@ -12,10 +12,10 @@ import (
 // DemoInfo 示例表GORM模型
 type DemoInfo struct {
 	Id     int    `gorm:"column:id;primaryKey;autoIncrement"`
-	Title  string `gorm:"column:title;size:255"`
-	Status int    `gorm:"column:status"`
+	Title  string `gorm:"column:title;size:255" vd:"len($)>0 and len($)<=60;msg:sprintf('长度必须在在1和60之间：%v',$)"`
+	Status int    `gorm:"column:status"  vd:"$>0 and $<=4;msg:sprintf('必须在1和4之间：%v',$)"`
 	Path   string `gorm:"column:path;size:255"`
-	RootId int    `gorm:"column:root_id"`
+	RootId int    `gorm:"column:root_id" vd:"$>0;msg:sprintf('根不能是0: %v',$)"`
 }
 
 // TableName 指定数据库表名

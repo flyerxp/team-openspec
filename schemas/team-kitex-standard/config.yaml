@@ -58,7 +58,7 @@ conventions:
       struct_tag_spec:
         tag_key: vd
         tag_format: "校验表达式;msg:sprintf('自定义业务错误提示: %v',$)"
-        tag_example: ShopId int `gorm:"column:shop_id" json:"shop_id" vd:"$>0;msg:sprintf('店铺id不能是空: %v',$)"`
+        tag_example: 'ShopId int `gorm:"column:shop_id" json:"shop_id" vd:"$>0;msg:sprintf(''店铺id不能是空: %v'',$)"`'
       standard_code_demo: |
         insert := gormLshop.ShopArtificialServiceCols{
             Name:          req.Name,          
