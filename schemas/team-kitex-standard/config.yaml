@@ -1,35 +1,29 @@
-# OpenSpec 1.4.1 新版配置文件（已完成旧版project.md+旧config完整迁移）
-version: "1.0"
-context:
-  # 项目基础信息
-  project: "Kitex Protobuf RPC微服务"
-  description: "基于Kitex+Protobuf+GORM+Redis构建的纯同步RPC微服务，完全对齐字节跳动Kitex官方脚手架与团队统一DAL规范，所有Kitex RPC项目强制生效"
-  tech_stack: ["Golang 1.21+", "Kitex(Protobuf)", "GORM v2", "Redis 6.0+", "Protobuf"]
-  
-  # 示例代码文件引用（AI会自动读取这些文件作为编码参考）
-  examples:
-    - path: "openspec/examples/where/where_constructor_example.go"
-      description: "Where查询构造器标准写法，链式调用、类型安全，禁止手写裸SQL"
-    - path: "openspec/examples/repo_page_example.go"
-      description: "Repo仓储层+统一分页标准实现，包含CRUD、更新方法选型、事务参数传递"
-    - path: "openspec/examples/transaction_example.go"
-      description: "数据库事务操作标准写法，手动/自动事务两种标准模式"
-    - path: "openspec/examples/db_init_example.go"
-      description: "多数据库初始化标准模板，全局唯一DB入口，支持多库隔离"
-    - path: "openspec/examples/scaffold_command.txt"
-      description: "Kitex脚手架标准生成命令模板，所有RPC代码生成必须以此为准"
-    - path: "openspec/examples/joins/where/where_constructor_example.go"
-      description: "Joins连表场景的Where查询构造器标准写法，指针内嵌BaseWhere，链式入参"
-    - path: "openspec/examples/joins/repo_page_example.go"
-      description: "Joins连表场景的Repo+分页标准实现，Preload连表查询、DTO结果映射"
-  # 全局强制规约（已整合旧project.md+旧config的所有规则）
+  version: "1.0"
+  context:
+    project: "Kitex Protobuf RPC微服务"
+    description: "基于Kitex+Protobuf+GORM+Redis构建的纯同步RPC微服务，完全对齐字节跳动Kitex官方脚手架与团队统一DAL规范，所有Kitex RPC项目强制生效"
+    tech_stack: ["Golang 1.21+", "Kitex(Protobuf)", "GORM v2", "Redis 6.0+", "Protobuf"]
+    examples:
+      - path: "openspec/examples/where/where_constructor_example.go"
+        description: "Where查询构造器标准写法，链式调用、类型安全，禁止手写裸SQL"
+      - path: "openspec/examples/repo_page_example.go"
+        description: "Repo仓储层+统一分页标准实现，包含CRUD、更新方法选型、事务参数传递"
+      - path: "openspec/examples/transaction_example.go"
+        description: "数据库事务操作标准写法，手动/自动事务两种标准模式"
+      - path: "openspec/examples/db_init_example.go"
+        description: "多数据库初始化标准模板，全局唯一DB入口，支持多库隔离"
+      - path: "openspec/examples/scaffold_command.txt"
+        description: "Kitex脚手架标准生成命令模板，所有RPC代码生成必须以此为准"
+      - path: "openspec/examples/joins/where/where_constructor_example.go"
+        description: "Joins连表场景的Where查询构造器标准写法，指针内嵌BaseWhere，链式入参"
+      - path: "openspec/examples/joins/repo_page_example.go"
+        description: "Joins连表场景的Repo+分页标准实现，Preload连表查询、DTO结果映射"
+
   conventions:
-    # 语言规范
     language:
       all_docs_use_zh: true
       allowed_english_terms: ["ctx", "db", "req", "resp", "gorm", "redis", "kitex"]
-    
-    # 编码规范
+
     code:
       struct_init_mode: "aggregate"
       variable_auto_infer: true
@@ -39,8 +33,7 @@ context:
       forbid_global_biz_var: true
       single_line_comment_only: true
       lint_nolint_support: true
-    
-    # 目录结构规范
+
     directory:
       root_dirs: ["idl", "kitex_gen", "layout", "conf", "biz"]
       biz_sub_dirs: ["service", "logic", "convert", "dal/gormL", "dal/redis"]
@@ -52,22 +45,22 @@ context:
           forbid_manual_edit: true
         idl:
           only_allow_protobuf: true
-        # 多库目录自动创建
         biz/dal/gormL:
           auto_create_sub_db_dir: true
-        # 所有业务库下 where 目录约束
         biz/dal/gormL/*/where:
           only_allow_go: true
           forbid_other_file: true
-        # 新增：所有业务库下 顶层joins目录约束
         biz/dal/gormL/*/joins:
           only_allow_go: true
           forbid_other_file: true
-        # 新增：joins内部子where目录约束，和单表where规则完全对齐
         biz/dal/gormL/*/joins/where:
           only_allow_go: true
           forbid_other_file: true
-    # 分层职责约束
+        biz/service:
+          auto_gen_by_script: true
+          forbid_manual_create_file: true
+          only_allow_modify_exist_file: true
+
     layer:
       service:
         can_hold_light_biz: true
@@ -76,17 +69,16 @@ context:
         forbid_raw_sql: true
       logic:
         forbid_depend_upper_layer: true
+        storage_rule: "仅存放多接口复用的公共通用业务逻辑；单一接口专属、无复用价值的简单逻辑禁止存放至logic层，直接下沉至service层处理"
       convert:
         forbid_biz_logic: true
       dal:
         forbid_hard_code: true
-    
-    # 分层依赖白名单
+
     deps_whitelist:
       biz/service: ["biz/logic", "biz/convert", "biz/dal"]
       biz/logic: ["biz/convert", "biz/dal"]
-    
-    # DAL层全局规范
+
     dal:
       db_isolate_mode: "multi_db_isolate"
       init_file_path: "biz/dal/gormL/init.go"
@@ -102,7 +94,6 @@ context:
         limit_plus_one_mode: true
         auto_calc_has_more: true
         standard_page_struct: "widget.Page"
-      # 修复1：全部移入dal内部，此前层级外飘导致框架无法识别
       join_spec:
         enable: true
         join_dir_relation: "db_level_sibling_with_where"
@@ -116,19 +107,18 @@ context:
           - 禁止Preload用于常规跨表关联，仅允许一对一嵌套返回边缘场景使用
           - Where层禁止结构体属性入参，统一使用链式方法返回自身
           - 禁止exists模拟内连接，内外连接统一通过db.Joins原生语法切换
-          - 禁止无参数裸调用 db.Distinct()，禁止使用 `表名.*` 作为Distinct参数
+          - 禁止无参数裸调用db.Distinct()，禁止使用`表名.*`作为Distinct参数
         column_spec:
           syntax: "`table_name`.`column_name`"
-          duplicate_alias_rule: "关联表同名字段统一别名: 关联表短前缀_字段名，例demo_info_price.id => price_id"
-        # 修复2：弱化Preload配置，明确边缘场景，解决前后语义冲突
-        preload_spec:
-          table_source: "仅读取dal原生db模型TableName，不读取joins承接DTO"
-          usage_limit: "仅前端一对一嵌套结构体返回使用，禁止一对多、分页、内外连接场景使用"
-        joins_spec:
-          sql_type: "统一单SQL db.Joins，不使用双SQL预加载"
-          join_type: "LEFT JOIN/INNER JOIN直接通过Joins入参切换，无需额外兜底逻辑"
-          dto_style: "优先使用嵌套子DTO（主表/关联表字段语义隔离），简单查询可使用字段平铺，禁止混用两种风格"
-          one_to_many_rule: "一对多Joins查询仅允许 Distinct(`主表.主键`) 索引级去重，禁止.*、禁止裸Distinct"
+          duplicate_alias_rule: "关联表同名字段统一别名：关联表短前缀_字段名，例demo_info_price.id => price_id"
+      preload_spec:
+        table_source: "仅读取dal原生db模型TableName，不读取joins承接DTO"
+        usage_limit: "仅前端一对一嵌套结构体返回使用，禁止一对多、分页、内外连接场景使用"
+      joins_spec:
+        sql_type: "统一单SQL db.Joins，不使用双SQL预加载"
+        join_type: "LEFT JOIN/INNER JOIN直接通过Joins入参切换，无需额外兜底逻辑"
+        dto_style: "优先使用嵌套子DTO（主表/关联表字段语义隔离），简单查询可使用字段平铺，禁止混用两种风格"
+        one_to_many_rule: "一对多Joins查询仅允许Distinct(`主表.主键`)索引级去重，禁止.*、禁止裸Distinct"
       repo_extend:
         alias_standard: null
         mandatory_method:
@@ -143,7 +133,6 @@ context:
         instance_rule: "禁止全局缓存where实例，每次查询通过Repo.GetWhere新建实例"
         coding_rule: "禁止结构体存储查询参数，统一链式方法返回自身"
         table_rule: "单表where可省略表名；joins/where无论是否join，全部强制携带原生表名"
-      # 修复3：合并重复repo单例规则，删除冗余重复项
       forbidden_rules:
         - 禁止logic层反向依赖service上层模块
         - 禁止convert层编写任何业务逻辑
@@ -155,9 +144,7 @@ context:
         - 禁止conf目录存放任何Go源码文件
         - 禁止硬编码业务常量、状态、时间等数据
 
-# 绑定当前使用的AI工具
-tools:
-  - name: "Qoder"
+  tools:
+    - name: "Qoder"
 
-# 强制禁用交互模式（彻底解决Windows终端兼容性卡死问题）
-no_interactive: true
+  no_interactive: true
