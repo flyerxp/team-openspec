@@ -61,6 +61,75 @@ context:
       forbid_go_file: true
     idl:
       only_protobuf: true
+      # 目录层级约束：idl仅允许两级目录（一级业务模块/二级子模块），禁止三级嵌套
+      allow_two_level_dir: true
+      forbid_three_level_dir: true
+      dir_struct_example: "idl/user/info.proto、idl/order/operate.proto、idl/notify/push.proto；禁止idl/user/info/detail.proto三级嵌套"
+      # 按业务目录区分Service命名强制规则
+      uniform_service_by_biz_dir: true
+      service_name_rule: "以idl一级业务目录名作为Service前缀，格式为【业务名+Service】；同目录下所有.proto文件必须共用同一个Service名称，禁止自定义、修改服务名。示例：idl/notify/全部文件统一 service NotifyService {}，idl/user/全部文件统一 service UserService {}"
+      forbid_multi_service_in_same_dir: true
+      forbid_multi_service_rule: "同一个一级业务目录下，所有proto只能定义对应唯一业务Service；单个proto文件内也仅允许存在1个service，禁止同目录出现多个不同Service"
+      # proto文件命名规范
+      file_naming:
+        case: snake_case
+        suffix: ".proto"
+        forbid: 大驼峰、中文、空格、特殊符号文件名
+        example: notify_push.proto、user_query.proto、order_create.proto
+      # package包名规范（移除v1后缀）
+      package_spec:
+        format: 业务模块名
+        example: package notify; package user; package order;
+        note: 每个一级业务目录使用独立package，与目录名保持一致，不带版本后缀
+      # 文件头部强制模板（无v1、go_package简化为业务名）
+      mandatory_file_header:
+        - syntax = "proto3";
+        - package 业务目录名;
+        - option go_package = "业务目录名";
+      # message/枚举/字段命名规范
+      message_rule:
+        name_case: UpperCamelCase
+        req_suffix: Request
+        resp_suffix: Response
+        example: SendNotifyRequest、GetUserResponse
+      enum_rule:
+        name_case: UpperCamelCase
+        value_case: UPPER_SNAKE_CASE
+        first_const: UNKNOWN = 0
+      field_rule:
+        name_case: snake_case
+        field_id_start: 1
+        forbid_skip_field_id: true
+        forbid_delete_old_field_id: true
+        # 新增字段参数校验注解规范
+        validate_annotation_spec:
+          enable_mandatory: true
+          annotation_key: "(api.vd)"
+          annotation_format: "校验表达式;msg:自定义错误提示文案"
+          example: int32 ShopId = 1 [(api.path) = "shop_id" ,(api.vd) = "$ >= 0 ;msg:sprintf('店铺ID参数错误')"];
+          rule_desc: "所有需要合法性校验的字段必须添加(api.vd)校验注解；校验表达式按需自定义（大于0、大于等于0、非空、长度限制等）；错误提示文案根据业务场景自定义，禁止统一笼统提示"
+          common_expressions:
+            - 数字ID: "$ > 0 ;msg:sprintf('XXID不能为空')"
+            - 非负数字: "$ >= 0 ;msg:sprintf('XX参数不能为负数')"
+            - 字符串非空: "len($) > 0 ;msg:sprintf('XX不能为空')"
+            - 字符串长度范围: "len($) <= 64 ;msg:sprintf('XX长度不能超过64位')"
+      # rpc接口规范（Hertz http proto专用）
+      rpc_spec:
+        name_case: UpperCamelCase
+        only_unary: true
+        single_req_resp: true
+        must_attach_http_annotation: true
+      # 禁止行为清单
+      forbidden_behavior:
+        1. idl创建三级及以上嵌套目录
+        2. 同一一级业务目录下proto文件私自修改Service名称，不遵循【业务名+Service】命名规则
+        3. 单个proto文件、同目录内出现多个不同service定义
+        4. 使用proto2语法，强制统一proto3
+        5. message、enum、rpc、字段缺少中文注释
+        6. 循环import其他proto文件
+        7. 顶层message使用map嵌套复杂结构体
+        8. 业务必填、需要合法性判断的字段不添加(api.vd)校验注解
+        9. 校验注解msg文案统一复用“参数错误”，不区分业务场景自定义提示
     golang/biz/router:
       manual_edit_forbid: true
     golang/biz/model:
