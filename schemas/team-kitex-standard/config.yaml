@@ -43,24 +43,54 @@
           forbid_go_source: true
         kitex_gen:
           forbid_manual_edit: true
-        idl:
-          only_allow_protobuf: true
-        biz/dal/gormL:
-          auto_create_sub_db_dir: true
-        biz/dal/gormL/*/where:
-          only_allow_go: true
-          forbid_other_file: true
-        biz/dal/gormL/*/joins:
-          only_allow_go: true
-          forbid_other_file: true
-        biz/dal/gormL/*/joins/where:
-          only_allow_go: true
-          forbid_other_file: true
-        biz/service:
-          auto_gen_by_script: true
-          forbid_manual_create_file: true
-          only_allow_modify_exist_file: true
-
+      idl:
+        only_allow_protobuf: true
+        # 统一服务名强制规则
+        uniform_service_naming: true
+        service_name_rule: "新建.proto文件必须沿用项目已有统一Service命名格式，示例：service ShopService {}，禁止自定义、随意新建、修改不规则服务名称，全项目所有proto保持服务名完全一致"
+        forbid_multi_service: true
+        forbid_multi_service_rule: "单个项目全部proto文件仅允许定义同一个Service，禁止在任意proto内新建多个不同service、禁止拆分业务到多个不同服务中"
+        # 新增全套proto文件编写细则
+        file_name_rule:
+          case: snake_case
+          suffix: .proto
+          example: goods_operation.proto
+          forbid: 大驼峰、空格、中文、特殊符号文件名
+        package_rule:
+          format: 项目域名/业务模块，统一固定package不允许每个文件自定义
+          example: package shop.v1;
+        import_rule:
+          # 仅允许导入公共基础idl，禁止循环导入
+          forbid_cycle_import: true
+          base_import: "公共枚举、分页结构体统一导入公共base.proto"
+        message_naming:
+          case: UpperCamelCase大驼峰
+          req_suffix: Request
+          resp_suffix: Response
+          example: GetGoodsRequest、GetGoodsResponse
+        field_naming:
+          case: snake_case下划线命名
+          field_id_start: 1，自增不跳号、不重复、不删除旧字段id
+          forbid_reserved_word: true
+        enum_spec:
+          name_case: UpperCamelCase大驼峰
+          value_name_case: UPPER_SNAKE_CASE全大写下划线
+          first_value: 枚举首个值固定为0（UNKNOWN）
+        rpc_method_spec:
+          name_case: UpperCamelCase大驼峰
+          unary_only: true # 仅支持普通一元rpc，禁止stream流式接口
+          param_limit: 单个rpc仅支持1个入参message、1个出参message
+        file_head_spec:
+          mandatory_head:
+            - syntax = "proto3"; 强制使用proto3，禁止proto2
+            - package 统一包名;
+            - option go_package = "kitex_gen/shop;shop"; 统一go生成路径
+        forbidden_behavior:
+          1. 禁止在proto内写业务注释以外的业务逻辑、硬编码常量
+          2. 禁止使用map嵌套复杂message做入参/出参顶层结构
+          3. 禁止message、enum、rpc重名
+          4. 禁止省略字段注释，所有对外暴露字段必须添加中文说明
+          5. 禁止一个proto文件定义多套无关业务rpc，按业务维度拆分文件，但Service名称必须统一不变
     layer:
       service:
         can_hold_light_biz: true
