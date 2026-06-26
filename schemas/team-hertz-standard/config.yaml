@@ -4,8 +4,8 @@ no_interactive: true
 
 context:
   # 项目基础信息
-  project: "hertz-web-manage"
-  display_name: "Hertz Web后台管理服务"
+  project: "hertz-web"
+  display_name: "Hertz Protobuf Web服务"
   service_type: ["web"]
   description: "基于Hertz+Protobuf开发的Web接口与Liquid页面渲染服务，对齐团队统一DAL分层规范"
   tech_stack: ["Golang 1.21+", "Hertz", "Protobuf", "GORM v2", "Redis 6.0+", "Liquid"]
