@@ -1,181 +1,134 @@
-# OpenSpec 1.4.1 新版配置文件（异步任务服务专属：Crontab+Consumer）
-version: "1.0"
-no_interactive: true
+# OpenSpec 项目配置（适配 @fission-ai/openspec CLI 1.3.1+；本项目：异步任务服务 Crontab + Consumer）
+#
+# 新版 CLI 对 openspec/config.yaml 仅识别以下三个顶层字段，其余未知字段一律静默忽略：
+#   schema  : 工作流 schema，新建 change 的默认值（内置可选值：spec-driven）
+#   context : 项目上下文纯文本（必须为字符串，上限 50KB），会注入所有 artifact 指令的 <context> 块
+#   rules   : 按 artifact 分组的附加规则，形如 rules: { design: ["..."], tasks: ["..."] }，注入对应 <rules> 块
+#
+# 注意：context 必须写成字符串（YAML 块标量），不能写嵌套对象，否则新版 CLI 会报
+# "Invalid 'context' field in config (must be string)" 并整体忽略 context。
 
-context:
-  # 项目基础信息
-  project: "async-task-service"
-  display_name: "Golang异步任务服务"
-  service_type: ["crontab", "consumer"]
-  description: "基于Cobra+GORM+Redis+MQ构建的定时任务、消息消费异步后台服务"
-  tech_stack: ["Golang 1.21+", "GORM v2", "Redis 6.0+", "Cobra", "MQ"]
-  
-  # 关联代码示例文件（AI自动读取参考）
-  examples:
-    - path: "openspec/examples/where/where_constructor_example.go"
-      description: "Where链式查询构造器标准写法，类型安全禁止裸SQL"
-    - path: "openspec/examples/repo_page_example.go"
-      description: "Repo仓储层+统一分页完整实现，包含CRUD、更新方法选型"
-    - path: "openspec/examples/transaction_example.go"
-      description: "GORM两种事务标准写法，手动/自动事务两种模式"
-    - path: "openspec/examples/db_init_example.go"
-      description: "多数据库统一初始化init.go模板，全局唯一DB入口"
-    - path: "openspec/examples/joins/where/where_constructor_example.go"
-      description: "Joins连表场景的Where查询构造器标准写法，指针内嵌BaseWhere，链式入参"
-    - path: "openspec/examples/joins/repo_page_example.go"
-      description: "Joins连表场景的Repo+分页标准实现，Preload连表查询、DTO结果映射"
-  # 工程目录结构约束
-  dir_struct:
-    root_keep:
-      - biz
-      - crontab
-      - consumer
-    biz_sub_dir:
-      - logic
-      - convert
-      - dal/gormL
-      - dal/redis
-    crontab_sub_dir:
-      - cmd
-      - service
-      - conf
-      - shell
-    consumer_sub_dir:
-      - cmd
-      - service
-      - conf
-      - shell
-  
-  # 目录专属强约束（已添加你要的where目录规则）
-  dir_rule:
-    conf:
-      only_yaml: true
-      forbid_go_file: true
-    # 新增：gormL目录自动创建多库子目录
-    biz/dal/gormL:
-      auto_create_sub_db_dir: true
-    # 新增：所有业务库下的where目录约束
-    biz/dal/gormL/*/where:
-      only_go_file: true
-      forbid_other_file: true
-    # 新增：所有业务库下 顶层joins目录约束
-    biz/dal/gormL/*/joins:
-      only_allow_go: true
-      forbid_other_file: true
-    # 新增：joins内部子where目录约束，和单表where规则完全对齐
-    biz/dal/gormL/*/joins/where:
-      only_allow_go: true
-      forbid_other_file: true
-    # 原有规则
-    biz/dal/redis:
-      only_go_file: true
-      forbid_other_file: true
-    crontab/cmd:
-      forbid_biz_logic: true
-    consumer/cmd:
-      forbid_biz_logic: true
-  
-  # DAL层全局规范
-  dal:
-    db_isolate_mode: "multi_db_isolate"
-    init_file_path: "biz/dal/gormL/init.go"
-    where_constructor:
-      enable: true
-      base_struct: "gormL.BaseWhere"
-      forbid_raw_sql: true
-    repo:
-      forbid_global_singleton: true
-      must_implement_get_where: true
-      where_only_from_repo_method: true
-    page:
-      limit_plus_one_mode: true
-      auto_calc_has_more: true
-      standard_page_struct: "widget.Page"
-    # 修复1：全部移入dal内部，此前层级外飘导致框架无法识别
-    join_spec:
-      enable: true
-      join_dir_relation: "db_level_sibling_with_where"
-      joins_sub_dir: ["where"]
-      forbidden_rules:
-        - 禁止自定义任何表别名，全链路使用数据库原生表名
-        - 禁止where、order、join条件省略表名，所有多表关联查询必须携带原生表名
-        - 禁止单表repo内追加Joins语句，所有JOIN查询全部收敛至库级joins目录
-        - 禁止SELECT * 查询，连表查询必须显式携带【`表名`.`字段`】，重名字段强制SQL别名
-        - 禁止在joins承接DTO内定义TableName、gorm.Model、gorm关联标签
-        - 禁止Preload用于常规跨表关联，仅允许一对一嵌套返回边缘场景使用
-        - Where层禁止结构体属性入参，统一使用链式方法返回自身
-        - 禁止exists模拟内连接，内外连接统一通过db.Joins原生语法切换
-        - 禁止无参数裸调用 db.Distinct()，禁止使用 `表名.*` 作为Distinct参数
-      column_spec:
-        syntax: "`table_name`.`column_name`"
-        duplicate_alias_rule: "关联表同名字段统一别名: 关联表短前缀_字段名，例demo_info_price.id => price_id"
-      # 修复2：弱化Preload配置，明确边缘场景，解决前后语义冲突
-      preload_spec:
-        table_source: "仅读取dal原生db模型TableName，不读取joins承接DTO"
-        usage_limit: "仅前端一对一嵌套结构体返回使用，禁止一对多、分页、内外连接场景使用"
-      joins_spec:
-        sql_type: "统一单SQL db.Joins，不使用双SQL预加载"
-        join_type: "LEFT JOIN/INNER JOIN直接通过Joins入参切换，无需额外兜底逻辑"
-        dto_style: "优先使用嵌套子DTO（主表/关联表字段语义隔离），简单查询可使用字段平铺，禁止混用两种风格"
-        one_to_many_rule: "一对多Joins查询仅允许 Distinct(`主表.主键`) 索引级去重，禁止.*、禁止裸Distinct"
-    repo_extend:
-      alias_standard: null
-      mandatory_method:
-        require_alias_field_method: false
-        require_alias_gorm_model: false
-        require_table_alias_method: false
-      tx_spec:
-        dal_reject_tx_param: true
-        desc: "DAL层所有方法禁止接收tx入参，事务统一上层logic管控"
-    where_spec:
-      embed_rule: "统一指针内嵌*gormL.BaseWhere，禁止值内嵌"
-      instance_rule: "禁止全局缓存where实例，每次查询通过Repo.GetWhere新建实例"
-      coding_rule: "禁止结构体存储查询参数，统一链式方法返回自身"
-      table_rule: "单表where可省略表名；joins/where无论是否join，全部强制携带原生表名"
-    # 修复3：合并重复repo单例规则，删除冗余重复项
-    forbidden_rules:
-      - 禁止logic层反向依赖service上层模块
-      - 禁止convert层编写任何业务逻辑
-      - 禁止Repo全局单例，和repo.forbid_global_singleton双向对齐
-      - 禁止手动new实例化Where结构体，必须通过Repo.GetWhere()获取
-      - 禁止手写裸SQL，所有查询必须使用where链式构造器
-      - 禁止跨层、反向非法依赖，严格遵守分层白名单
-      - 禁止手动修改kitex_gen自动生成目录的代码
-      - 禁止conf目录存放任何Go源码文件
-      - 禁止硬编码业务常量、状态、时间等数据
-  # 分层依赖白名单
-  deps_whitelist:
-    crontab/cmd: ["crontab/service"]
-    consumer/cmd: ["consumer/service"]
-    crontab/service: ["biz/logic", "biz/dal", "biz/convert"]
-    consumer/service: ["biz/logic", "biz/dal", "biz/convert"]
-    biz/logic: ["biz/dal(readonly)", "biz/convert"]
-  
-  # 分层职责约束
-  layer_constraint:
-    cmd_no_biz_logic: true
-    convert_no_logic: true
-    logic_no_upper_depend: true
-    dal_no_hard_code: true
-  
-  # 编码强制规则
-  code_rule:
-    global_biz_var: false
-    var_shadow: false
-    lint_nolint: true
-    cobra_standard: true
-    service_cmd_match: true
-  
-  # 全局红线禁止规则
-  forbidden_rule:
-    - "禁止Logic依赖上层crontab/consumer模块"
-    - "禁止cmd层编写任何业务、数据逻辑"
-    - "禁止Convert层编写业务逻辑"
-    - "禁止Repo全局单例"
-    - "禁止硬编码配置、时间、状态值"
-    - "禁止手写裸SQL"
-    - "禁止跨层、反向非法依赖"
+schema: spec-driven
 
-# 绑定当前使用的AI工具
-tools:
-  - name: "Qoder"
+context: |
+  以下为本项目的强制约束，生成任何 artifact（proposal/design/specs/tasks）与实现代码时必须遵守。
+
+  ## 项目基础信息
+
+  - 项目标识（project）：async-task-service
+  - 显示名称（display_name）：Golang 异步任务服务
+  - 服务类型（service_type）：crontab、consumer
+  - 描述（description）：基于 Cobra + GORM + Redis + MQ 构建的定时任务、消息消费异步后台服务
+  - 技术栈（tech_stack）：Golang 1.21+、GORM v2、Redis 6.0+、Cobra、MQ
+
+  ## 参考示例文件（生成设计/代码前必读）
+
+  - openspec/examples/where/where_constructor_example.go：Where 链式查询构造器标准写法，类型安全禁止裸 SQL
+  - openspec/examples/repo_page_example.go：Repo 仓储层 + 统一分页完整实现，包含 CRUD、更新方法选型
+  - openspec/examples/transaction_example.go：GORM 两种事务标准写法，手动/自动事务两种模式
+  - openspec/examples/db_init_example.go：多数据库统一初始化 init.go 模板，全局唯一 DB 入口
+  - openspec/examples/joins/where/where_constructor_example.go：Joins 连表场景的 Where 查询构造器标准写法，指针内嵌 BaseWhere，链式入参
+  - openspec/examples/joins/repo_page_example.go：Joins 连表场景的 Repo + 分页标准实现，Preload 连表查询、DTO 结果映射
+
+  ## 工程目录结构约束（dir_struct）
+
+  - 根目录保留（root_keep）：biz、crontab、consumer
+  - biz 子目录（biz_sub_dir）：logic、convert、dal/gormL、dal/redis
+  - crontab 子目录（crontab_sub_dir）：cmd、service、conf、shell
+  - consumer 子目录（consumer_sub_dir）：cmd、service、conf、shell
+
+  ## 目录专属强约束（dir_rule）
+
+  - conf：仅允许 yaml 文件（only_yaml），禁止 Go 源码文件（forbid_go_file）
+  - biz/dal/gormL：自动创建多库子目录（auto_create_sub_db_dir）
+  - biz/dal/gormL/*/where：仅允许 Go 文件（only_go_file），禁止其他文件（forbid_other_file）
+  - biz/dal/gormL/*/joins：仅允许 Go 文件（only_allow_go），禁止其他文件（forbid_other_file）
+  - biz/dal/gormL/*/joins/where：仅允许 Go 文件（only_allow_go），禁止其他文件（forbid_other_file），与单表 where 规则完全对齐
+  - biz/dal/redis：仅允许 Go 文件（only_go_file），禁止其他文件（forbid_other_file）
+  - crontab/cmd：禁止编写 biz 业务逻辑（forbid_biz_logic）
+  - consumer/cmd：禁止编写 biz 业务逻辑（forbid_biz_logic）
+
+  ## DAL 层全局规范（dal）
+
+  - 多库隔离模式（db_isolate_mode）：multi_db_isolate
+  - DB 初始化文件（init_file_path）：biz/dal/gormL/init.go
+  - where 构造器（where_constructor）：启用；基类结构体 gormL.BaseWhere；禁止裸 SQL（forbid_raw_sql）
+  - repo 规范（repo）：禁止全局单例（forbid_global_singleton）；必须实现 GetWhere（must_implement_get_where）；Where 只能由 Repo 方法产出（where_only_from_repo_method）
+  - 分页规范（page）：limit+1 模式（limit_plus_one_mode）；自动计算 has_more（auto_calc_has_more）；统一分页结构体 widget.Page
+
+  ## joins 连表规范（join_spec）
+
+  - 启用；join 目录与 where 同级挂在库目录下（db_level_sibling_with_where）；子目录（joins_sub_dir）：where
+  - 连表禁止规则（forbidden_rules）：
+    1. 禁止自定义任何表别名，全链路使用数据库原生表名
+    2. 禁止 where、order、join 条件省略表名，所有多表关联查询必须携带原生表名
+    3. 禁止单表 repo 内追加 Joins 语句，所有 JOIN 查询全部收敛至库级 joins 目录
+    4. 禁止 SELECT * 查询，连表查询必须显式携带【`表名`.`字段`】，重名字段强制 SQL 别名
+    5. 禁止在 joins 承接 DTO 内定义 TableName、gorm.Model、gorm 关联标签
+    6. 禁止 Preload 用于常规跨表关联，仅允许一对一嵌套返回边缘场景使用
+    7. Where 层禁止结构体属性入参，统一使用链式方法返回自身
+    8. 禁止 exists 模拟内连接，内外连接统一通过 db.Joins 原生语法切换
+    9. 禁止无参数裸调用 db.Distinct()，禁止使用 `表名.*` 作为 Distinct 参数
+  - 字段规范（column_spec）：语法 `table_name`.`column_name`；关联表同名字段统一别名：关联表短前缀_字段名，例 demo_info_price.id => price_id
+  - Preload 规范（preload_spec）：仅读取 dal 原生 db 模型 TableName，不读取 joins 承接 DTO；仅前端一对一嵌套结构体返回使用，禁止一对多、分页、内外连接场景使用
+  - joins 输出规范（joins_spec）：统一单 SQL db.Joins，不使用双 SQL 预加载；LEFT JOIN/INNER JOIN 直接通过 Joins 入参切换，无需额外兜底逻辑；优先使用嵌套子 DTO（主表/关联表字段语义隔离），简单查询可使用字段平铺，禁止混用两种风格；一对多 Joins 查询仅允许 Distinct(`主表.主键`) 索引级去重，禁止 `.*`、禁止裸 Distinct
+
+  ## repo 扩展规范（repo_extend）
+
+  - 别名标准（alias_standard）：无（null）
+  - 强制方法（mandatory_method）：不强制 require_alias_field_method / require_alias_gorm_model / require_table_alias_method
+  - 事务规范（tx_spec）：DAL 层所有方法禁止接收 tx 入参（dal_reject_tx_param），事务统一上层 logic 管控
+
+  ## where 规范（where_spec）
+
+  - 内嵌规则（embed_rule）：统一指针内嵌 *gormL.BaseWhere，禁止值内嵌
+  - 实例规则（instance_rule）：禁止全局缓存 where 实例，每次查询通过 Repo.GetWhere 新建实例
+  - 编码规则（coding_rule）：禁止结构体存储查询参数，统一链式方法返回自身
+  - 表名规则（table_rule）：单表 where 可省略表名；joins/where 无论是否 join，全部强制携带原生表名
+
+  ## DAL 红线（forbidden_rules）
+
+  - 禁止 logic 层反向依赖 service 上层模块
+  - 禁止 convert 层编写任何业务逻辑
+  - 禁止 Repo 全局单例（与 repo.forbid_global_singleton 双向对齐）
+  - 禁止手动 new 实例化 Where 结构体，必须通过 Repo.GetWhere() 获取
+  - 禁止手写裸 SQL，所有查询必须使用 where 链式构造器
+  - 禁止跨层、反向非法依赖，严格遵守分层白名单
+  - 禁止手动修改 kitex_gen 自动生成目录的代码
+  - 禁止 conf 目录存放任何 Go 源码文件
+  - 禁止硬编码业务常量、状态、时间等数据
+
+  ## 分层依赖白名单（deps_whitelist）
+
+  - crontab/cmd 允许依赖：crontab/service
+  - consumer/cmd 允许依赖：consumer/service
+  - crontab/service 允许依赖：biz/logic、biz/dal、biz/convert
+  - consumer/service 允许依赖：biz/logic、biz/dal、biz/convert
+  - biz/logic 允许依赖：biz/dal（只读）、biz/convert
+
+  ## 分层职责约束（layer_constraint）
+
+  - cmd 层不写业务逻辑（cmd_no_biz_logic）
+  - convert 层不写逻辑（convert_no_logic）
+  - logic 层不反向依赖上层（logic_no_upper_depend）
+  - dal 层不硬编码（dal_no_hard_code）
+
+  ## 编码强制规则（code_rule）
+
+  - 禁止全局业务变量（global_biz_var）
+  - 禁止变量遮蔽（var_shadow）
+  - 规范使用 //nolint（lint_nolint）
+  - Cobra 命令标准写法（cobra_standard）
+  - service 与 cmd 一一对应（service_cmd_match）
+
+  ## 全局红线（forbidden_rule）
+
+  - 禁止 Logic 依赖上层 crontab/consumer 模块
+  - 禁止 cmd 层编写任何业务、数据逻辑
+  - 禁止 Convert 层编写业务逻辑
+  - 禁止 Repo 全局单例
+  - 禁止硬编码配置、时间、状态值
+  - 禁止手写裸 SQL
+  - 禁止跨层、反向非法依赖
+
+rules: {}
