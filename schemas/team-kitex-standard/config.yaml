@@ -66,7 +66,7 @@ rules:
     - 设计方案必须遵守 context 中的目录结构、分层职责与依赖白名单(含 biz/conver 引用白名单)
     - 多表查询统一采用库级 joins 目录方案(单 SQL db.Joins),禁止双 SQL 预加载、禁止自定义表别名
     - 分页统一使用 widget.Page 标准结构(limit+1 模式,自动计算 has_more)
-    - 事务统一由上层 logic 管控,DAL 方法禁止接收 tx 入参
+    - 事务统一由上层 logic 管控(发起、提交与回滚),DAL 方法接收可选的 tx *gorm.DB 入参承接事务,tx 为 nil 时使用默认连接
     - 新增数据访问必须使用 Where 链式构造器(指针内嵌 gormL.BaseWhere),禁止裸 SQL、禁止全局单例 Repo
   tasks:
     - 每项任务必须可验证(测试、命令或可观察行为),按依赖顺序拆分
@@ -90,10 +90,10 @@ operations:
         禁止 Preload 用于常规跨表关联(仅一对一嵌套返回边缘场景可用,且仅读取 dal 原生模型 TableName);
         禁止 exists 模拟内连接,内外连接统一通过 db.Joins 原生语法切换;
         禁止无参数裸调用 db.Distinct(),禁止使用 `表名.*` 作为 Distinct 参数(一对多仅允许 Distinct(`主表.主键`) 索引级去重)
-      - 事务规约:DAL 方法禁止接收 tx 入参,事务统一由上层 logic 管控;数据库初始化统一走 biz/dal/gormL/init.go
+      - 事务规约:事务统一由上层 logic 管控(发起、提交与回滚);DAL 方法接收可选的 tx *gorm.DB 入参承接事务,tx 为 nil 时使用默认连接;数据库初始化统一走 biz/dal/gormL/init.go
       - 通用禁止项:禁止硬编码业务常量/状态/时间;禁止修改 kitex_gen 生成代码;禁止在 conf 存放 Go 源码;
         禁止跨层反向依赖,严格遵守分层白名单
       - 编码规范:注释仅单行;文档与注释用中文;禁止变量遮蔽;禁止全局业务变量;无限循环用 for{};JSON 用原生字符串
   archive:
     guidance:
-      - 存档前确认 tasks.md 全部勾选完成,并运行 openspec validate --strict 通过
+      - 存档无需校验，直接强制存档

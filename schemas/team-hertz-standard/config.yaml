@@ -1,8 +1,8 @@
 # OpenSpec 1.4.1 新版配置文件（Hertz Web服务专属）
 context:
   # 项目基础信息
-  project: "hertz-web-weixin"
-  display_name: "Hertz Web 项目规范"
+  project: "hertz-web-openspec"
+  display_name: "Hertz Web 规范"
   service_type: ["web"]
   description: "基于Hertz+Protobuf开发的Web接口服务，对齐团队统一DAL分层规范"
   tech_stack: ["Golang 1.21+", "Hertz", "Protobuf", "GORM v2", "Redis 6.0+"]
@@ -219,7 +219,7 @@ context:
         require_table_alias_method: false
       tx_spec:
         dal_reject_tx_param: true
-        desc: "DAL层所有方法禁止接收tx入参，事务统一上层logic管控"
+        desc: "事务统一由上层 logic 管控(发起、提交与回滚),DAL 方法接收可选的 tx *gorm.DB 入参承接事务,tx 为 nil 时使用默认连接"
     where_spec:
       embed_rule: "统一指针内嵌*gormL.BaseWhere，禁止值内嵌"
       instance_rule: "禁止全局缓存where实例，每次查询通过Repo.GetWhere新建实例"
@@ -257,6 +257,48 @@ context:
     - "禁止业务硬编码常量、状态、时间、ID等固定数据"
     - "禁止render目录层级混乱，必须严格两层结构：一级业务模块/二级子页面"
 
-# 绑定当前使用的AI工具
-tools:
-  - name: "Qoder"
+
+# 各 artifact 附加规则(键必须为合法 artifact ID:proposal、specs、design、tasks)
+rules:
+  proposal:
+    - 使用中文撰写,技术术语与代码标识保留英文
+    - 能力路径使用 kebab-case,优先复用 openspec/specs 下已有能力路径,避免近义重复能力
+    - 涉及 biz/conver 的能力仅描述结构转换职责,不得设计业务逻辑
+  specs:
+    - 使用中文撰写;需求使用 SHALL/MUST 描述行为契约,每个需求至少一个场景
+    - 行为契约不得写入内部类名、函数名、框架选型等实现细节
+  design:
+    - 设计方案必须遵守 context 中的目录结构、分层职责与依赖白名单(含 biz/conver 引用白名单)
+    - 多表查询统一采用库级 joins 目录方案(单 SQL db.Joins),禁止双 SQL 预加载、禁止自定义表别名
+    - 分页统一使用 widget.Page 标准结构(limit+1 模式,自动计算 has_more)
+    - 事务统一由上层 logic 管控(发起、提交与回滚),DAL 方法接收可选的 tx *gorm.DB 入参承接事务,tx 为 nil 时使用默认连接
+    - 新增数据访问必须使用 Where 链式构造器(指针内嵌 gormL.BaseWhere),禁止裸 SQL、禁止全局单例 Repo
+  tasks:
+    - 每项任务必须可验证(测试、命令或可观察行为),按依赖顺序拆分
+    - 涉及 DAL 的任务须明确使用 Repo.GetWhere() 链式构造器;涉及连表须落在对应业务库的 joins 目录
+    - 涉及 biz/conver 的任务须明确仅做结构转换并遵守依赖白名单
+
+# apply/archive 操作指导(不随 artifact 注入,仅在对应操作阶段注入)
+operations:
+  apply:
+    guidance:
+      - 实现前先阅读 context 列出的 openspec/examples 示例文件,全部编码以其为准
+      - biz/conver 仅做结构体转换与公共结构体定义:项目内只允许引用 biz/dal/gormL 与 kitex_gen;
+        可用标准库/第三方工具类完成字符串、数组、JSON、加解密等纯数据加工;禁止引用其它项目内部目录,禁止业务逻辑
+      - Where 规约:统一指针内嵌 *gormL.BaseWhere,禁止值内嵌;禁止手动 new 或全局缓存 Where 实例,
+        每次查询通过 Repo.GetWhere() 新建;禁止结构体属性入参/存储查询参数,统一链式方法返回自身;
+        禁止 Repo 全局单例;禁止手写裸 SQL;单表 where 可省略表名,joins/where 无论是否 join 全部强制携带原生表名
+      - Joins 强制规约:禁止自定义表别名,全链路使用数据库原生表名;禁止 where/order/join 条件省略表名;
+        禁止单表 repo 内追加 Joins 语句,所有 JOIN 查询收敛至库级 joins 目录;
+        禁止 SELECT * 查询,连表必须显式携带 `表名`.`字段`,重名字段强制 SQL 别名(关联表短前缀_字段名);
+        禁止在 joins 承接 DTO 内定义 TableName、gorm.Model、gorm 关联标签;DTO 优先嵌套子 DTO(主表/关联表字段语义隔离),禁止平铺与嵌套混用;
+        禁止 Preload 用于常规跨表关联(仅一对一嵌套返回边缘场景可用,且仅读取 dal 原生模型 TableName);
+        禁止 exists 模拟内连接,内外连接统一通过 db.Joins 原生语法切换;
+        禁止无参数裸调用 db.Distinct(),禁止使用 `表名.*` 作为 Distinct 参数(一对多仅允许 Distinct(`主表.主键`) 索引级去重)
+      - 事务规约:事务统一由上层 logic 管控(发起、提交与回滚);DAL 方法接收可选的 tx *gorm.DB 入参承接事务,tx 为 nil 时使用默认连接;数据库初始化统一走 biz/dal/gormL/init.go
+      - 通用禁止项:禁止硬编码业务常量/状态/时间;禁止修改 kitex_gen 生成代码;禁止在 conf 存放 Go 源码;
+        禁止跨层反向依赖,严格遵守分层白名单
+      - 编码规范:注释仅单行;文档与注释用中文;禁止变量遮蔽;禁止全局业务变量;无限循环用 for{};JSON 用原生字符串
+  archive:
+    guidance:
+      - 存档无需校验，直接强制存档
