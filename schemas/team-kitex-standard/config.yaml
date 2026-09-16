@@ -1,229 +1,99 @@
-version: "1.0"
-context:
-  project: "Kitex Protobuf RPC微服务"
-  description: "基于Kitex+Protobuf+GORM+Redis构建的纯同步RPC微服务，完全对齐字节跳动Kitex官方脚手架与团队统一DAL规范，所有Kitex RPC项目强制生效"
-  tech_stack: ["Golang 1.21+", "Kitex(Protobuf)", "GORM v2", "Redis 6.0+", "Protobuf"]
-  examples:
-    - path: "openspec/examples/where/where_constructor_example.go"
-      description: "Where查询构造器标准写法，链式调用、类型安全，禁止手写裸SQL"
-    - path: "openspec/examples/repo_page_example.go"
-      description: "Repo仓储层+统一分页标准实现，包含CRUD、更新方法选型、事务参数传递"
-    - path: "openspec/examples/transaction_example.go"
-      description: "数据库事务操作标准写法，手动/自动事务两种标准模式"
-    - path: "openspec/examples/db_init_example.go"
-      description: "多数据库初始化标准模板，全局唯一DB入口，支持多库隔离"
-    - path: "openspec/examples/scaffold_command.txt"
-      description: "Kitex脚手架标准生成命令模板，所有RPC代码生成必须以此为准"
-    - path: "openspec/examples/joins/where/where_constructor_example.go"
-      description: "Joins连表场景的Where查询构造器标准写法，指针内嵌BaseWhere，链式入参"
-    - path: "openspec/examples/joins/repo_page_example.go"
-      description: "Joins连表场景的Repo+分页标准实现，Preload连表查询、DTO结果映射"
-conventions:
-  language:
-    all_docs_use_zh: true
-    allowed_english_terms: ["ctx", "db", "req", "resp", "gorm", "redis", "kitex"]
-  code:
-    struct_init_mode: "aggregate"
-    variable_auto_infer: true
-    forbid_shadow_variable: true
-    infinite_loop_style: "for{}"
-    json_use_raw_string: true
-    forbid_global_biz_var: true
-    single_line_comment_only: true
-    lint_nolint_support: true
-    # 统一业务错误返回规范
-    error_return_spec:
-      unified_err_util_file: "biz/service/utils.go"
-      three_err_func:
-        system_err: "SystemErr(msg string) kerrors.BizStatusErrorIface"
-        validate_err: "VdCheckErr(msg string) kerrors.BizStatusErrorIface"
-        business_err: "BizErr(msg string) kerrors.BizStatusErrorIface"
-      scene_rule:
-        - func: VdCheckErr
-          usage: "入参字段校验失败、参数格式/数值范围非法、必填项缺失等参数校验场景"
-        - func: BizErr
-          usage: "业务规则不满足、数据不存在、库存不足、状态不允许操作等纯业务逻辑异常"
-        - func: SystemErr
-          usage: "数据库异常、Redis异常、RPC调用失败、IO错误、系统内部未知故障等底层系统异常"
-      forbid_behavior:
-        1. 禁止代码中直接调用 kerrors.NewBizStatusError 生成业务错误
-        2. 禁止直接返回原生 fmt.Errorf、errors.New 等裸error，必须使用上述三个统一包装函数
-        3. 禁止混用错误函数，需严格匹配错误场景选用对应错误方法
-        4. 错误提示文案禁止笼统模糊，需携带业务字段、ID等关键信息便于排查
-    # DB模型新增/更新入库校验规范
-    db_model_validate_spec:
-      import_path: "github.com/flyerxp/lib/v2/utils/vd"
-      mandatory_func: vd.VdDefault
-      rule_desc: "执行Insert/Update保存数据库前，必须调用vd.VdDefault对完整模型结构体做校验，禁止跳过模型校验、禁止手写大量if判断字段合法性替代标签校验"
-      struct_tag_spec:
-        tag_key: vd
-        tag_format: "校验表达式;msg:sprintf('自定义业务错误提示: %v',$)"
-        tag_example: 'ShopId int `gorm:"column:shop_id" json:"shop_id" vd:"$>0;msg:sprintf(''店铺id不能是空: %v'',$)"`'
-      standard_code_demo: |
-        insert := gormLshop.ShopArtificialServiceCols{
-            Name:          req.Name,          
-            ShopId:        int(req.ShopId),
-        }
-        vdErr := vd.VdDefault(insert)
-        if vdErr != nil {
-            return resp, VdCheckErr(vdErr.Error())
-        }
-      forbid_behavior:
-        1. 新增、更新数据库数据前未调用vd.VdDefault执行模型校验
-        2. DB模型结构体需要合法性校验的字段未添加vd标签定义校验规则
-        3. 手动编写大量if判断字段范围、长度、非空等逻辑替代vd标签统一校验
-        4. vd校验失败时不使用VdCheckErr包装错误，直接返回原生error
-  directory:
-    root_dirs: ["idl", "kitex_gen", "layout", "conf", "biz"]
-    biz_sub_dirs: ["service", "logic", "convert", "dal/gormL", "dal/redis"]
-    dir_rules:
-      conf:
-        only_allow_yaml: true
-        forbid_go_source: true
-      kitex_gen:
-        forbid_manual_edit: true
-      idl:
-        only_allow_protobuf: true
-        # 统一服务名强制规则
-        uniform_service_naming: true
-        service_name_rule: "新建.proto文件必须沿用项目已有统一Service命名格式，示例：service ShopService {}，禁止自定义、随意新建、修改不规则服务名称，全项目所有proto保持服务名完全一致"
-        forbid_multi_service: true
-        forbid_multi_service_rule: "单个项目全部proto文件仅允许定义同一个Service，禁止在任意proto内新建多个不同service、禁止拆分业务到多个不同服务中"
-        # 全套proto文件编写细则
-        file_name_rule:
-          case: snake_case
-          suffix: .proto
-          example: goods_operation.proto
-          forbid: 大驼峰、空格、中文、特殊符号文件名
-        package_rule:
-          format: 业务模块名，无版本后缀
-          example: package shop;
-        import_rule:
-          forbid_cycle_import: true
-          base_import: "公共枚举、分页结构体统一导入公共base.proto"
-        message_naming:
-          case: UpperCamelCase大驼峰
-          req_suffix: Request
-          resp_suffix: Response
-          example: GetGoodsRequest、GetGoodsResponse
-        field_naming:
-          case: snake_case下划线命名
-          field_id_start: 1，自增不跳号、不重复、不删除旧字段id
-          forbid_reserved_word: true
-          # IDL入参字段api.vd校验注解规范
-          validate_annotation_spec:
-            mandatory: true
-            annotation_tag: "(api.vd)"
-            standard_format: "(api.vd) = \"校验表达式;msg:sprintf('自定义业务错误文案')\""
-            demo: "int32 ShopId = 1  [(api.path) = \"shop_id\" ,(api.vd) = \"$ >= 0 ;msg:sprintf('店铺ID不能为负数')\"];"
-            common_expression:
-              - 数字ID: "$ > 0 ;msg:sprintf('XXID不能为空')"
-              - 非负数值: "$ >= 0 ;msg:sprintf('XX参数不能为负数')"
-              - 字符串非空: "len($) > 0 ;msg:sprintf('XX字段不能为空')"
-              - 字符串长度限制: "len($) <= 64 ;msg:sprintf('XX长度不能超过64字符')"
-            forbid: 所有需要校验的入参字段禁止省略(api.vd)；禁止全部统一写“参数错误”，需按业务自定义提示文案
-        enum_spec:
-          name_case: UpperCamelCase大驼峰
-          value_name_case: UPPER_SNAKE_CASE全大写下划线
-          first_value: 枚举首个值固定为0（UNKNOWN）
-        rpc_method_spec:
-          name_case: UpperCamelCase大驼峰
-          unary_only: true
-          param_limit: 单个rpc仅支持1个入参message、1个出参message
-        file_head_spec:
-          mandatory_head:
-            - syntax = "proto3";
-            - package 统一包名;
-            - option go_package = "kitex_gen/shop;shop";
-        forbidden_behavior:
-          1. 禁止在proto内写业务注释以外的业务逻辑、硬编码常量
-          2. 禁止使用map嵌套复杂message做入参/出参顶层结构
-          3. 禁止message、enum、rpc重名
-          4. 禁止省略字段注释，所有对外暴露字段必须添加中文说明
-          5. 禁止一个proto文件定义多套无关业务rpc，按业务维度拆分文件，但Service名称必须统一不变
-          6. 需校验字段未添加(api.vd)校验注解
-          7. 校验注解msg文案统一复用笼统“参数错误”，不区分业务场景自定义提示
-  layer:
-    service:
-      can_hold_light_biz: true
-      can_hold_cache_op: true
-      forbid_heavy_biz: true
-      forbid_raw_sql: true
-    logic:
-      forbid_depend_upper_layer: true
-      storage_rule: "仅存放多接口复用的公共通用业务逻辑；单一接口专属、无复用价值的简单逻辑禁止存放至logic层，直接下沉至service层处理"
-    convert:
-      forbid_biz_logic: true
-    dal:
-      forbid_hard_code: true
-  deps_whitelist:
-    biz/service: ["biz/logic", "biz/convert", "biz/dal"]
-    biz/logic: ["biz/convert", "biz/dal"]
-  dal:
-    db_isolate_mode: "multi_db_isolate"
-    init_file_path: "biz/dal/gormL/init.go"
-    where_constructor:
-      enable: true
-      base_struct: "gormL.BaseWhere"
-      forbid_raw_sql: true
-    repo:
-      forbid_global_singleton: true
-      must_implement_get_where: true
-      where_only_from_repo_method: true
-    page:
-      limit_plus_one_mode: true
-      auto_calc_has_more: true
-      standard_page_struct: "widget.Page"
-    join_spec:
-      enable: true
-      join_dir_relation: "db_level_sibling_with_where"
-      joins_sub_dir: ["where"]
-      forbidden_rules:
-        - 禁止自定义任何表别名，全链路使用数据库原生表名
-        - 禁止where、order、join条件省略表名，所有多表关联查询必须携带原生表名
-        - 禁止单表repo内追加Joins语句，所有JOIN查询全部收敛至库级joins目录
-        - 禁止SELECT * 查询，连表查询必须显式携带【`表名`.`字段`】，重名字段强制SQL别名
-        - 禁止在joins承接DTO内定义TableName、gorm.Model、gorm关联标签
-        - 禁止Preload用于常规跨表关联，仅允许一对一嵌套返回边缘场景使用
-        - Where层禁止结构体属性入参，统一使用链式方法返回自身
-        - 禁止exists模拟内连接，内外连接统一通过db.Joins原生语法切换
-        - 禁止无参数裸调用db.Distinct()，禁止使用`表名.*`作为Distinct参数
-      column_spec:
-        syntax: "`table_name`.`column_name`"
-        duplicate_alias_rule: "关联表同名字段统一别名：关联表短前缀_字段名，例demo_info_price.id => price_id"
-    preload_spec:
-      table_source: "仅读取dal原生db模型TableName，不读取joins承接DTO"
-      usage_limit: "仅前端一对一嵌套结构体返回使用，禁止一对多、分页、内外连接场景使用"
-    joins_spec:
-      sql_type: "统一单SQL db.Joins，不使用双SQL预加载"
-      join_type: "LEFT JOIN/INNER JOIN直接通过Joins入参切换，无需额外兜底逻辑"
-      dto_style: "优先使用嵌套子DTO（主表/关联表字段语义隔离），简单查询可使用字段平铺，禁止混用两种风格"
-      one_to_many_rule: "一对多Joins查询仅允许Distinct(`主表.主键`)索引级去重，禁止.*、禁止裸Distinct"
-    repo_extend:
-      alias_standard: null
-      mandatory_method:
-        require_alias_field_method: false
-        require_alias_gorm_model: false
-        require_table_alias_method: false
-      tx_spec:
-        dal_reject_tx_param: true
-        desc: "DAL层所有方法禁止接收tx入参，事务统一上层logic管控"
-    where_spec:
-      embed_rule: "统一指针内嵌*gormL.BaseWhere，禁止值内嵌"
-      instance_rule: "禁止全局缓存where实例，每次查询通过Repo.GetWhere新建实例"
-      coding_rule: "禁止结构体存储查询参数，统一链式方法返回自身"
-      table_rule: "单表where可省略表名；joins/where无论是否join，全部强制携带原生表名"
-    forbidden_rules:
-      - 禁止logic层反向依赖service上层模块
-      - 禁止convert层编写任何业务逻辑
-      - 禁止Repo全局单例，和repo.forbid_global_singleton双向对齐
-      - 禁止手动new实例化Where结构体，必须通过Repo.GetWhere()获取
-      - 禁止手写裸SQL，所有查询必须使用where链式构造器
-      - 禁止跨层、反向非法依赖，严格遵守分层白名单
-      - 禁止手动修改kitex_gen自动生成目录的代码
-      - 禁止conf目录存放任何Go源码文件
-      - 禁止硬编码业务常量、状态、时间等数据
-      - 新增/更新数据库模型未执行vd.VdDefault模型校验，或校验字段未添加vd结构体标签
-tools:
-  - name: "Qoder"
-no_interactive: true
+# OpenSpec 项目配置(严格遵循 @fission-ai/openspec 1.13.x 配置 schema)
+# 合法顶层字段:schema(必填)、context(字符串)、rules(按 artifact ID 组织)、operations(apply/archive 指导)、store、githubCopilot
+# 旧版自定义字段(version、tools、no_interactive、conventions、examples)已按新规范完整迁移:
+#   项目背景与全局规约 -> context;各 artifact 附加规则 -> rules;实现阶段规约 -> operations.apply.guidance
+# 严格校验方式:openspec context 无字段告警,openspec instructions 可正常注入 context/rules/guidance
+schema: spec-driven
+
+# 全局项目上下文:注入全部 artifact(proposal/specs/design/tasks)与 apply/archive 指令,作为强制约束
+context: |
+  以下为本项目的强制约束,生成任何 artifact(proposal/specs/design/tasks)与实现代码时必须遵守。
+
+  ## 项目基础信息
+
+  - 项目标识（project）：team-kitex-standard
+  - 显示名称（display_name）：Kitex RPC 服务
+  - 服务类型（service_type）：rpc
+  - 描述（description）：基于 Kitex + Protobuf + GORM v2 + Redis 6.0+ 构建的纯同步 RPC 微服务,对齐字节跳动 Kitex 官方脚手架与团队统一 DAL 规范,承载共用RPC规范业务
+  - 技术栈（tech_stack）：Golang 1.21+、Kitex(Protobuf)、Protobuf、GORM v2、Redis 6.0+
+
+  ## 编码参考示例(实现前必读,以示例为准;路径相对仓库根目录)
+  - openspec/examples/scaffold_command.txt:Kitex 脚手架标准生成命令模板,所有 RPC 代码生成必须以此为准
+  - openspec/examples/where/where_constructor_example.go:Where 查询构造器标准写法,链式调用、类型安全,禁止手写裸 SQL
+  - openspec/examples/repo_page_example.go:Repo 仓储层 + 统一分页标准实现,包含 CRUD、更新方法选型、事务参数传递
+  - openspec/examples/transaction_example.go:数据库事务标准写法,手动/自动事务两种标准模式
+  - openspec/examples/db_init_example.go:多数据库初始化标准模板,全局唯一 DB 入口,支持多库隔离
+  - openspec/examples/joins/where/where_constructor_example.go:Joins 连表场景 Where 构造器标准写法,指针内嵌 BaseWhere、链式入参
+  - openspec/examples/joins/repo_page_example.go:Joins 连表场景 Repo + 分页标准实现,单 SQL 连表、DTO 结果映射
+
+  ## 目录结构规范
+  - 根目录:idl / kitex_gen / layout / conf / biz
+  - biz 子目录:service / logic / conver / dal/gormL / dal/redis
+  - conf:仅允许 YAML 配置,禁止存放 Go 源码
+  - kitex_gen:Kitex 自动生成目录,禁止人工修改
+  - idl:仅允许 Protobuf 文件
+  - biz/dal/gormL:按业务库分子目录(如 shop、t3d),多库隔离,新增业务库自动创建库级子目录
+  - biz/dal/gormL/*/where、biz/dal/gormL/*/joins、biz/dal/gormL/*/joins/where:仅允许 Go 文件
+
+  ## 分层职责(强制)
+  - biz/service:可承载轻业务与缓存操作;禁止重业务逻辑,禁止裸 SQL
+  - biz/logic:业务编排层;禁止反向依赖 service 上层模块
+  - biz/conver:纯数据结构转换与公共结构体定义,禁止任何业务逻辑
+  - biz/dal:数据访问层;禁止硬编码业务常量、状态、时间等数据
+
+  ## 分层依赖白名单(强制,禁止跨层与反向非法依赖)
+  - biz/service 只能依赖:biz/logic、biz/conver、biz/dal
+  - biz/logic 只能依赖:biz/conver、biz/dal
+  - biz/conver 项目内部只能依赖:biz/dal/gormL、kitex_gen/;
+    允许使用 Go 标准库与第三方通用工具类完成字符串、数组、JSON、加解密等纯数据加工(如 safe、logger、decimal、zap);
+    禁止引用 biz/service、biz/logic、biz/lib、biz/dal/redis、client 等任何其它项目内部目录
+
+  ## 语言与编码规范
+  - 所有文档与注释使用中文;允许的英文术语:ctx、db、req、resp、gorm、redis、kitex
+  - 结构体初始化使用聚合模式;变量自动类型推断;禁止变量遮蔽
+  - 无限循环使用 for{};JSON 使用原生字符串;禁止全局业务变量;注释仅单行;支持 lint nolint
+
+# 各 artifact 附加规则(键必须为合法 artifact ID:proposal、specs、design、tasks)
+rules:
+  proposal:
+    - 使用中文撰写,技术术语与代码标识保留英文
+    - 能力路径使用 kebab-case,优先复用 openspec/specs 下已有能力路径,避免近义重复能力
+    - 涉及 biz/conver 的能力仅描述结构转换职责,不得设计业务逻辑
+  specs:
+    - 使用中文撰写;需求使用 SHALL/MUST 描述行为契约,每个需求至少一个场景
+    - 行为契约不得写入内部类名、函数名、框架选型等实现细节
+  design:
+    - 设计方案必须遵守 context 中的目录结构、分层职责与依赖白名单(含 biz/conver 引用白名单)
+    - 多表查询统一采用库级 joins 目录方案(单 SQL db.Joins),禁止双 SQL 预加载、禁止自定义表别名
+    - 分页统一使用 widget.Page 标准结构(limit+1 模式,自动计算 has_more)
+    - 事务统一由上层 logic 管控,DAL 方法禁止接收 tx 入参
+    - 新增数据访问必须使用 Where 链式构造器(指针内嵌 gormL.BaseWhere),禁止裸 SQL、禁止全局单例 Repo
+  tasks:
+    - 每项任务必须可验证(测试、命令或可观察行为),按依赖顺序拆分
+    - 涉及 DAL 的任务须明确使用 Repo.GetWhere() 链式构造器;涉及连表须落在对应业务库的 joins 目录
+    - 涉及 biz/conver 的任务须明确仅做结构转换并遵守依赖白名单
+
+# apply/archive 操作指导(不随 artifact 注入,仅在对应操作阶段注入)
+operations:
+  apply:
+    guidance:
+      - 实现前先阅读 context 列出的 openspec/examples 示例文件,全部编码以其为准
+      - biz/conver 仅做结构体转换与公共结构体定义:项目内只允许引用 biz/dal/gormL 与 kitex_gen;
+        可用标准库/第三方工具类完成字符串、数组、JSON、加解密等纯数据加工;禁止引用其它项目内部目录,禁止业务逻辑
+      - Where 规约:统一指针内嵌 *gormL.BaseWhere,禁止值内嵌;禁止手动 new 或全局缓存 Where 实例,
+        每次查询通过 Repo.GetWhere() 新建;禁止结构体属性入参/存储查询参数,统一链式方法返回自身;
+        禁止 Repo 全局单例;禁止手写裸 SQL;单表 where 可省略表名,joins/where 无论是否 join 全部强制携带原生表名
+      - Joins 强制规约:禁止自定义表别名,全链路使用数据库原生表名;禁止 where/order/join 条件省略表名;
+        禁止单表 repo 内追加 Joins 语句,所有 JOIN 查询收敛至库级 joins 目录;
+        禁止 SELECT * 查询,连表必须显式携带 `表名`.`字段`,重名字段强制 SQL 别名(关联表短前缀_字段名);
+        禁止在 joins 承接 DTO 内定义 TableName、gorm.Model、gorm 关联标签;DTO 优先嵌套子 DTO(主表/关联表字段语义隔离),禁止平铺与嵌套混用;
+        禁止 Preload 用于常规跨表关联(仅一对一嵌套返回边缘场景可用,且仅读取 dal 原生模型 TableName);
+        禁止 exists 模拟内连接,内外连接统一通过 db.Joins 原生语法切换;
+        禁止无参数裸调用 db.Distinct(),禁止使用 `表名.*` 作为 Distinct 参数(一对多仅允许 Distinct(`主表.主键`) 索引级去重)
+      - 事务规约:DAL 方法禁止接收 tx 入参,事务统一由上层 logic 管控;数据库初始化统一走 biz/dal/gormL/init.go
+      - 通用禁止项:禁止硬编码业务常量/状态/时间;禁止修改 kitex_gen 生成代码;禁止在 conf 存放 Go 源码;
+        禁止跨层反向依赖,严格遵守分层白名单
+      - 编码规范:注释仅单行;文档与注释用中文;禁止变量遮蔽;禁止全局业务变量;无限循环用 for{};JSON 用原生字符串
+  archive:
+    guidance:
+      - 存档前确认 tasks.md 全部勾选完成,并运行 openspec validate --strict 通过
