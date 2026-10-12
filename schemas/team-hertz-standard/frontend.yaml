@@ -1,0 +1,113 @@
+# 前端项目配置 —— 前端技术选型、渲染模式与代码生成写入路径的唯一来源
+# 规则：openspec 的 apply/propose 阶段涉及生成前端代码时，必须先读取本文件：
+#   1) 先读 frontend.render_mode 确定渲染模式：spa=按本文件顶层 root/type/dirs/命令与 SPA 规范执行；
+#      ssr=整体改用 frontend.ssr 块（独立 root、目录映射、命令与规则），两套模式的目录落点禁止混用；
+#   2) 禁止凭记忆或猜测硬编码写入路径；本文件缺失或路径无效时应报错停止，而不是回退默认值。
+# 路径解析：root 相对于本仓库根目录（D:/work/manage）；也允许写绝对路径。
+frontend:
+  # ===== 渲染模式开关（生成前端代码前读取的第一项）=====
+  # spa: 客户端渲染(当前默认,Vite + vue-router 动态路由,构建产物纯静态 dist)
+  # ssr: 服务端渲染(Nuxt 3,页面 HTML 由 Node 服务直出,整体走下方 ssr 块规范)
+  render_mode: "spa"
+
+  # 前端工程根目录（Vue3 SPA 独立仓库，与后端 manage 仓库并列；render_mode=ssr 时改用 ssr.root）
+  root: "../manage-admin"
+
+  # 工程类型与包管理器（生成代码时的调用命令来源）
+  type: "vue3-spa"
+  package_manager: "pnpm"
+  dev_command: "pnpm dev"
+  build_command: "pnpm build"
+  typecheck_command: "npx vue-tsc --noEmit -p tsconfig.json"
+
+  # 目录映射：生成/迁移前端文件时，只允许写入以下声明目录
+  dirs:
+    # API 封装层：按后端接口一级路径建同名子目录，文件按后端二级模块拆分
+    # 例：/system/notice → src/api/system/notice.ts；/shop/jituan → src/api/shop/jituan.ts
+    # 共享基础设施（request.ts/types.ts/auth.ts/index.ts）保留在 api 根，不参与分组
+    api: "src/api"
+    # 页面视图层：目录结构对齐老页面路由 /<一级>/<二级>/<三级>
+    # 惯例：列表 List.vue、编辑 Edit.vue、详情 View.vue、独立结果页 Result.vue、弹窗 Step.vue、iframe页 PahoMqtt.vue
+    views: "src/views"
+    # 全局共享组件（DataTable、Pager 等）；业务专属组件放页面目录内，不新增到此处
+    components: "src/components"
+    # 路由与 viewMap 注册表（新增页面必须同步改 src/router/index.ts）
+    router: "src/router"
+    # 布局与侧边栏菜单（菜单结构对齐老后台 left.html）
+    layout: "src/layout"
+    # 全局状态（auth/user store）
+    stores: "src/stores"
+    # 权限指令（v-perm）
+    directive: "src/directive"
+    # 工具函数（format.ts、pick.ts、image.ts 等）
+    utils: "src/utils"
+    # 构建输出目录（只读校验用，禁止手工编辑）
+    build_output: "dist"
+
+  # vite 开发代理前缀集中维护位置：新增 API 一级前缀必须同步追加 vite.config.ts 中的 API_PREFIXES 数组
+  vite_proxy_prefixes: "vite.config.ts#API_PREFIXES"
+
+  # 输入源约定（生成前端代码前必须读取的参考文件，均相对后端仓库根目录；spa/ssr 两种渲染模式共用）
+  inputs:
+    # 接口契约权威：请求参数名/校验注解以 IDL proto 为准（form/path/query/json tag、api.vd）
+    idl: "golang/idl"
+    # 实际响应结构：handler 渲染的 map/结构体键名（RenderSuccessHtml JSON 分支）
+    handler: "golang/biz/handler"
+    # 路由清单：页面与接口路径以 golang/biz/router/<module>/<module>.go 注册为准
+    routes: "golang/biz/router"
+    # 老页面基准：迁移页面必读对应模板 render/html/<module>/<sub>/*.html，功能元素不得缺失
+    legacy_templates: "render/html"
+    # 老静态资源参考（如需比对 JS/CSS 行为）
+    legacy_static: "static/admin"
+
+  # ===== SSR 模式规范（render_mode=ssr 时整体按本块执行，顶层 root/dirs/命令仅 spa 模式生效）=====
+  ssr:
+    framework: "Nuxt 3（Vue3 + Vite + Nitro 服务端渲染，Element Plus 用 @element-plus/nuxt 模块）"
+    project: "manage-admin-ssr（SSR 前端独立工程，与后端 manage 仓库及 SPA 工程并列）"
+    root: "../manage-admin-ssr"
+    package_manager: "pnpm"
+    dev_command: "pnpm dev"                       # nuxt dev，默认端口 3000
+    build_command: "pnpm build"                   # nuxt build，产物在 .output
+    typecheck_command: "pnpm exec nuxt typecheck"
+    preview_command: "node .output/server/index.mjs"
+    # 部署形态：SSR 需 Node 常驻进程，不能像 SPA 一样纯静态托管 dist；
+    # 与 Go 后端同域名时由网关把页面路径反代到 Nuxt、API 一级前缀仍转发到 Hertz 服务
+    deployment: "Node 服务常驻(.output/server/index.mjs) + 网关反代"
+
+    # SSR 模式目录映射（替代顶层 dirs，生成/迁移时只允许写入以下目录）
+    dirs:
+      # 页面走 Nuxt 文件路由，路径对齐 golang/biz/router 清单与老页面 /<一级>/<二级>/...；
+      # 列表 index.vue、编辑 new.vue/edit.vue、详情 [id].vue；禁止再维护 viewMap 式手工注册表
+      pages: "pages"
+      # 共享组件(DataTable/Pager 等)；页面专属组件放 components/<页面名>/ 子目录
+      components: "components"
+      # 组合式函数(useAuth/useAsyncTable 等)，首屏数据取数统一封装为同构 composable
+      composables: "composables"
+      # API 封装层，沿用按后端一级路径分二级目录约定(同顶层 dirs.api 的分组规则)
+      api: "api"
+      # 路由中间件：auth 登录守卫(注意服务端无 JWT，见 rules.auth_reality)
+      middleware: "middleware"
+      # 布局：default(含侧边栏菜单,结构对齐老后台 left.html)/blank(登录页)
+      layouts: "layouts"
+      # 插件：Element Plus zh-cn locale、axios 实例注入等
+      plugins: "plugins"
+      # 同构纯工具函数(pick/format)，禁止在顶层访问 window/document
+      utils: "utils"
+      # Nitro 服务端路由：仅限确需 BFF 聚合的场景，默认空置；禁止在此写业务逻辑或转发封装
+      server: "server"
+
+    # 开发环境 API 代理：新增一级前缀同步追加 nuxt.config.ts 的 nitro.devProxy（SPA 模式才用 vite API_PREFIXES）
+    dev_proxy: "nuxt.config.ts#nitro.devProxy"
+
+    # SSR 模式强约束
+    rules:
+      switch_rule: "把 render_mode 从 spa 切为 ssr 属重大决策：已有 SPA 工程的页面迁移/重写是独立变更，须先出页面清单与验收标准；新增页面则直接按本块规范开发；两种模式的写入目录互斥，写错工程根目录须报错停止"
+      auth_reality: "后端认证为 JWT 存 localStorage，Nuxt 服务端拿不到登录态：SSR 仅对登录页与公共壳直出 HTML；登录后页面在 server 端渲染壳、客户端守卫后取数(允许首屏 loading 直出)；若需带登录态全链路 SSR，必须后端支持 cookie 鉴权——这违反『不改 Go 后端』红线，必须另立独立变更，禁止在前端模式内私自改认证"
+      data_fetch: "页面首屏数据用 useAsyncData/useFetch 同构取数，禁止在 setup 顶层直接 await axios；响应键取值沿用 pick 规则(项目 map snake_case、外部 kitex 结构体 PascalCase)"
+      api_contract: "接口契约/响应结构/路由清单/老模板基线的输入读取顺序与 SPA 模式完全一致(见顶层 inputs)"
+      form_dict_rule: "SPA 的编码强约束在 SSR 模式同等有效：postForm/toForm 数组同名多值、字典{Id,SE,TE} value=Id label=TE、回填 SE/TE 优先 Id 兜底、筛选下拉首项『请选择XX』、el-date-picker + zh-cn locale、列名逐字对齐老页面、v-perm 控制权限入口、el-pagination prev/next"
+      seo_output: "页面标题/meta 用 useSeoMeta 管理；后台系统默认在应用壳加 robots noindex 防内部数据被索引，仅当有明确公开需求的页面才按页去除；直出 HTML 验证方式：对页面路径 curl(不带 x-requested-with)应返回含关键内容的 SSR HTML 而非空壳"
+      legacy_link: "外链老退款页等页面导航保持 window.location / 普通 <a> 整页跳转(依赖 Go 后端 Sec-Fetch-Dest 判别返回老 HTML)，禁止改为 Nuxt 路由内部跳转"
+      ssr_compat: "所有直接访问 window/document/localStorage 的代码必须包 import.meta.client 或置于 onMounted；Element Plus 通过 @element-plus/nuxt 接入，禁止裸引 CDN"
+      backend_forbid: "禁止为配合 SSR 修改 Go 后端代码(新增接口、改渲染键名、加 cookie 鉴权)；后端现状即契约"
+      acceptance: "逐页验收：nuxt build 全绿 + nuxt typecheck 通过 + curl 页面导航验证 HTML 直出内容 + 与老模板逐元素功能比对"
